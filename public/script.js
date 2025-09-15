@@ -67,7 +67,7 @@ async function cadastrarUsuario() {
     localStorage.setItem('confirmationCode', codigo);
 
     try {
-        const response = await fetch('http://localhost:3000/api/cadastrar', {
+        const response = await fetch('/api/cadastrar', { // ✅ ALTERADO: localhost → /
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ nome, email, senha, codigo })
@@ -139,7 +139,7 @@ function reenviarCodigo() {
     const novoCodigo = Math.floor(1000 + Math.random() * 9000).toString();
     localStorage.setItem('confirmationCode', novoCodigo);
 
-    fetch('http://localhost:3000/api/cadastrar', {
+    fetch('/api/cadastrar', { // ✅ ALTERADO: localhost → /
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -450,20 +450,46 @@ function confirmDeleteNews() {
     loadNews();
 }
 
-function sendVerificationCode(email) {
+// =============
+// EXCLUSÃO DE CONTA
+// =============
+
+let deleteCode = null;
+
+async function sendVerificationCode(email) {
     // Gera código de 4 dígitos
-    const codigo = Math.floor(1000 + Math.random() * 9000).toString();
+    deleteCode = Math.floor(1000 + Math.random() * 9000).toString();
 
-    // Salva código temporário
-    localStorage.setItem('deleteCode', codigo);
-    localStorage.setItem('deleteEmail', email);
+    try {
+        const response = await fetch('/api/enviar-codigo-exclusao', { // ✅ ALTERADO: localhost → /
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, codigo: deleteCode })
+        });
 
-    // Simula envio de e-mail (no futuro, usa o server.js)
-    console.log(`[DEBUG] Código de exclusão enviado para ${email}: ${codigo}`);
+        if (response.ok) {
+            document.getElementById('codeModal').style.display = 'flex';
+            document.getElementById('verificationCode').value = '';
+        } else {
+            alert('❌ Falha ao enviar código. Tente novamente.');
+        }
+    } catch (error) {
+        console.error('Erro ao enviar código:', error);
+        alert('❌ Erro de conexão. Verifique se o servidor está rodando.');
+    }
+}
 
-    // Mostra modal de confirmação
-    document.getElementById('codeSentModal').style.display = 'flex';
+function deleteAccount(email) {
+    // Remove conta do localStorage
+    localStorage.removeItem(email);
+    localStorage.removeItem('loggedUser');
 
-    // Em um sistema real, aqui chamaria o server.js para enviar e-mail
-    // fetch('/api/enviar-codigo-exclusao', { ... })
+    // Remove dados de amigos e chats
+    const friendsKey = `friends_${email}`;
+    localStorage.removeItem(friendsKey);
+
+    alert('✅ Sua conta foi excluída com sucesso!');
+    deleteCode = null;
+    document.getElementById('codeModal').style.display = 'none';
+    window.location.href = 'login.html';
 }
