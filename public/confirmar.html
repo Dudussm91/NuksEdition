@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirmar Código - NuksEdition</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <header>
+        <h1>NuksEdition</h1>
+    </header>
+
+    <div class="form-container">
+        <div class="form-box">
+            <h2>Confirmação de Cadastro</h2>
+            <p id="mensagem-inicial">Verificando...</p>
+            <form id="confirmForm" style="display:none;">
+                <input type="text" id="codigoInput" placeholder="Código de confirmação" required maxlength="4">
+                <button type="submit">Confirmar</button>
+            </form>
+            <p class="toggle-form" id="reenviar-link" style="display:none;">
+                Não recebeu? <a href="#" id="reenviar">Reenviar código</a>
+            </p>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const emailPendente = localStorage.getItem('pendingEmail');
+            const codigoSalvo = localStorage.getItem('confirmationCode');
+
+            const mensagem = document.getElementById('mensagem-inicial');
+            const form = document.getElementById('confirmForm');
+            const reenviarLink = document.getElementById('reenviar-link');
+
+            if (!emailPendente || !codigoSalvo) {
+                mensagem.innerHTML = '❌ Acesso negado. Por favor, faça seu cadastro primeiro.';
+                mensagem.style.color = 'red';
+                return;
+            }
+
+            mensagem.innerHTML = `Digite o código enviado para <strong>${emailPendente}</strong>`;
+            form.style.display = 'block';
+            reenviarLink.style.display = 'block';
+
+            document.getElementById('confirmForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                confirmarCodigo();
+            });
+
+            document.getElementById('reenviar').addEventListener('click', function(e) {
+                e.preventDefault();
+                reenviarCodigo();
+            });
+        });
+    </script>
+
+</body>
+</html>

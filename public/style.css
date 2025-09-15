@@ -1,0 +1,795 @@
+/* =============
+   RESET & CORES
+============= */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #f0f2f5;
+    color: #333;
+    min-height: 100vh;
+}
+
+/* =============
+   TOPO (HOME, AMIGOS, NOTÍCIAS, CHAT)
+============= */
+.topbar {
+    background: #6a5acd;
+    color: white;
+    padding: 15px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 100;
+}
+
+.topbar h1 {
+    font-size: 1.3rem;
+    margin: 0;
+}
+
+.topbar nav a {
+    color: white;
+    text-decoration: none;
+    margin-left: 20px;
+    font-weight: 500;
+    padding: 5px 10px;
+    border-radius: 5px;
+    transition: background 0.3s;
+}
+
+.topbar nav a:hover {
+    background: rgba(255,255,255,0.2);
+}
+
+.btn-logout {
+    background: #ff6b6b !important;
+    padding: 5px 10px !important;
+}
+
+.btn-back {
+    background: #5a4abb;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 5px;
+    text-decoration: none;
+    font-weight: 500;
+    transition: background 0.3s;
+}
+
+.btn-back:hover {
+    background: #4a3a9b;
+}
+
+/* =============
+   MENU DE USUÁRIO (DROPDOWN)
+============= */
+.user-menu {
+    position: relative;
+    cursor: pointer;
+}
+
+.user-display {
+    font-weight: 600;
+}
+
+.dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: white;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    border-radius: 5px;
+    min-width: 150px;
+    z-index: 200;
+}
+
+.dropdown a {
+    display: block;
+    padding: 10px 15px;
+    color: #6a5acd;
+    text-decoration: none;
+    transition: background 0.3s;
+}
+
+.dropdown a:hover {
+    background: #f0f0ff;
+}
+
+/* =============
+   CONTEÚDO PRINCIPAL (HOME, NOTÍCIAS, CHAT, AMIGOS)
+============= */
+.content,
+.friends-content,
+.chat-container,
+.news-content {
+    margin-top: 100px;
+    padding: 20px;
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.content h2,
+.friends-content h2,
+.news-content h2 {
+    color: #6a5acd;
+    margin-bottom: 20px;
+    font-size: 1.8rem;
+    text-align: center;
+}
+
+/* =============
+   FORMULÁRIOS (LOGIN, CADASTRO, CONFIRMAR, ADICIONAR AMIGO)
+============= */
+.form-container {
+    margin-top: 80px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    padding: 20px;
+}
+
+.form-box {
+    background: white;
+    padding: 40px;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    width: 100%;
+    max-width: 420px;
+    text-align: center;
+}
+
+.form-box h2 {
+    color: #6a5acd;
+    margin-bottom: 30px;
+    font-size: 1.8rem;
+}
+
+.form-box input {
+    width: 100%;
+    padding: 15px;
+    margin: 10px 0;
+    border: 2px solid #e1e1e1;
+    border-radius: 10px;
+    font-size: 1rem;
+    transition: border 0.3s;
+}
+
+.form-box input:focus {
+    border-color: #6a5acd;
+    outline: none;
+}
+
+.form-box button {
+    width: 100%;
+    padding: 15px;
+    background: #6a5acd;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 20px;
+    transition: background 0.3s;
+}
+
+.form-box button:hover {
+    background: #5a4abb;
+}
+
+.toggle-form {
+    margin-top: 25px;
+    font-size: 0.95rem;
+    color: #666;
+}
+
+.toggle-form a {
+    color: #6a5acd;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.toggle-form a:hover {
+    text-decoration: underline;
+}
+
+/* =============
+   PÁGINA DE AMIGOS
+============= */
+#addFriendForm input {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 10px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 1rem;
+}
+
+#addFriendForm button {
+    width: 100%;
+    padding: 12px;
+    background: #6a5acd;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+.friend-item, .invite-item {
+    padding: 15px;
+    background: #f9f9ff;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.friend-item button, .invite-item button {
+    padding: 8px 12px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    margin-left: 5px;
+}
+
+.accept-btn {
+    background: #4caf50;
+    color: white;
+}
+
+.accept-btn:hover {
+    background: #3d8b40;
+}
+
+.reject-btn {
+    background: #f44336;
+    color: white;
+}
+
+.reject-btn:hover {
+    background: #d32f2f;
+}
+
+.remove-btn {
+    background: #ff6b6b;
+    color: white;
+}
+
+.remove-btn:hover {
+    background: #e55a5a;
+}
+
+.chat-btn {
+    background: #6a5acd;
+    color: white;
+}
+
+.chat-btn:hover {
+    background: #5a4abb;
+}
+
+/* =============
+   MODAL DE CONFIRMAÇÃO
+============= */
+#confirmModal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    justify-content: center;
+    align-items: center;
+}
+
+#confirmModal div {
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+    text-align: center;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+    max-width: 400px;
+}
+
+#confirmModal button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    margin: 0 5px;
+}
+
+#confirmYes {
+    background: #4caf50;
+    color: white;
+}
+
+#confirmYes:hover {
+    background: #3d8b40;
+}
+
+#confirmNo {
+    background: #f44336;
+    color: white;
+}
+
+#confirmNo:hover {
+    background: #d32f2f;
+}
+
+/* =============
+   PÁGINA DE CHAT
+============= */
+.chat-messages {
+    height: 400px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    padding: 15px;
+    margin-bottom: 15px;
+    background: #f9f9f9;
+    border-radius: 8px;
+}
+
+.message {
+    margin: 10px 0;
+    padding: 10px;
+    border-radius: 8px;
+}
+
+.sent {
+    background: #e3f2fd;
+    text-align: right;
+}
+
+.received {
+    background: #f0f0f0;
+}
+
+.chat-input {
+    display: flex;
+    gap: 10px;
+}
+
+.chat-input input {
+    flex: 1;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+}
+
+.chat-input button {
+    padding: 12px 24px;
+    background: #6a5acd;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.chat-input button:hover {
+    background: #5a4abb;
+}
+
+/* =============
+   PÁGINA DE NOTÍCIAS
+============= */
+.news-box article {
+    margin-bottom: 40px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #eee;
+}
+
+.news-box article:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.news-box h3 {
+    color: #5a4abb;
+    margin-bottom: 10px;
+}
+
+.news-box p {
+    line-height: 1.7;
+    margin-bottom: 15px;
+}
+
+.news-box small {
+    color: #999;
+    font-size: 0.9rem;
+}
+
+/* =============
+   RESPONSIVO
+============= */
+@media (max-width: 768px) {
+    .form-box {
+        padding: 30px;
+        max-width: 90%;
+    }
+    .topbar nav a {
+        margin-left: 10px;
+        font-size: 0.9rem;
+    }
+    .content, .friends-content, .chat-container, .news-content {
+        padding: 15px;
+    }
+}
+
+/* =============
+   PÁGINA DE CHAT
+============= */
+.chat-container {
+    margin-top: 100px;
+    padding: 20px;
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.chat-messages {
+    height: 400px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    padding: 15px;
+    margin-bottom: 15px;
+    background: #f9f9f9;
+    border-radius: 8px;
+}
+
+.message {
+    margin: 10px 0;
+    padding: 10px;
+    border-radius: 8px;
+}
+
+.sent {
+    background: #e3f2fd;
+    text-align: right;
+}
+
+.received {
+    background: #f0f0f0;
+}
+
+.chat-input {
+    display: flex;
+    gap: 10px;
+}
+
+.chat-input input {
+    flex: 1;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+}
+
+.chat-input button {
+    padding: 12px 24px;
+    background: #6a5acd;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.chat-input button:hover {
+    background: #5a4abb;
+}
+
+/* =============
+   PÁGINA DE AMIGOS (ESTILOS QUE ESTAVAM EMBUTIDOS)
+============= */
+.friends-content {
+    margin-top: 100px;
+}
+
+.add-friend, .pending-invites, .my-friends {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.friend-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    background: #f9f9ff;
+    border-radius: 8px;
+    margin-bottom: 10px;
+}
+
+.friend-item button {
+    padding: 8px 12px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-left: 5px;
+}
+
+.friend-item button:nth-child(1) {
+    background: #4caf50;
+    color: white;
+}
+
+.friend-item button:nth-child(2) {
+    background: #f44336;
+    color: white;
+}
+
+.friend-item button:nth-child(3) {
+    background: #ff6b6b;
+    color: white;
+}
+
+/* =============
+   MODAL DE CONFIRMAÇÃO
+============= */
+#confirmModal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+#confirmModal > div {
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+    text-align: center;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    max-width: 400px;
+}
+
+#confirmModal button {
+    padding: 10px 20px;
+    margin: 0 5px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+#confirmYes {
+    background: #4caf50;
+    color: white;
+}
+
+#confirmNo {
+    background: #f44336;
+    color: white;
+}
+
+/* =============
+   PÁGINA DE NOTÍCIAS
+============= */
+.news-content {
+    margin-top: 100px;
+    padding: 20px;
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+#adminSection {
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+}
+
+#adminSection label {
+    display: block;
+    margin: 15px 0 5px;
+    font-weight: bold;
+    color: #6a5acd;
+}
+
+#adminSection input[type="file"],
+#adminSection input[type="text"],
+#adminSection textarea {
+    width: 100%;
+    padding: 12px;
+    margin: 10px 0;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 1rem;
+}
+
+#adminSection button {
+    width: 100%;
+    padding: 12px;
+    background: #6a5acd;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    cursor: pointer;
+    margin-top: 10px;
+}
+
+#adminSection button:hover {
+    background: #5a4abb;
+}
+
+.news-item {
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+    margin-bottom: 30px;
+    text-align: left;
+}
+
+.news-item img {
+    width: 100%;
+    max-height: 300px;
+    object-fit: cover;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+
+.news-item h3 {
+    color: #6a5acd;
+    margin-bottom: 15px;
+    font-size: 1.5rem;
+}
+
+.news-item p {
+    line-height: 1.7;
+    margin-bottom: 15px;
+}
+
+.news-item .date {
+    color: #999;
+    font-size: 0.9rem;
+    font-style: italic;
+}
+
+.delete-btn {
+    background: #f44336;
+    color: white;
+    padding: 8px 12px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    margin-top: 10px;
+}
+
+.delete-btn:hover {
+    background: #d32f2f;
+}
+
+/* =============
+   PÁGINA DE EXPLORAR
+============= */
+.explore-content {
+    margin-top: 100px;
+    padding: 20px;
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+    text-align: center;
+}
+
+.explore-content h2 {
+    color: #6a5acd;
+    margin-bottom: 40px;
+    font-size: 2rem;
+}
+
+.site-item {
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+    margin-bottom: 30px;
+    text-align: center;
+}
+
+.site-item img {
+    width: 100%;
+    max-width: 300px;
+    height: 200px;
+    object-fit: cover;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+
+.site-item h3 {
+    color: #6a5acd;
+    margin: 20px 0 10px;
+    font-size: 1.5rem;
+}
+
+.site-item .site-description {
+    color: #ff6b6b;
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+
+/* =============
+   PÁGINA DE CONFIGURAÇÕES
+============= */
+.settings-content {
+    margin-top: 100px;
+    padding: 20px;
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+    text-align: center;
+}
+
+.settings-section {
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+    margin-bottom: 30px;
+    text-align: left;
+}
+
+.settings-section h2 {
+    color: #6a5acd;
+    margin-bottom: 20px;
+    font-size: 1.5rem;
+}
+
+.delete-btn {
+    background: #f44336;
+    color: white;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: bold;
+}
+
+.delete-btn:hover {
+    background: #d32f2f;
+}
+
+.version-info {
+    background: white;
+    padding: 20px;
+    border-radius: 15px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+    text-align: center;
+}
+
+.version-info p {
+    color: #666;
+    font-size: 0.9rem;
+}

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat - NuksEdition</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <header class="topbar">
+        <h1 id="chatTitle">Chat com Amigo</h1>
+        <nav>
+            <a href="amigos.html" class="btn-back">← Voltar</a>
+        </nav>
+    </header>
+
+    <div class="chat-container">
+        <div class="chat-messages" id="chatMessages"></div>
+        <div class="chat-input">
+            <input type="text" id="messageInput" placeholder="Digite sua mensagem..." maxlength="500">
+            <button id="sendButton">Enviar</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        let currentFriend = null;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const loggedUser = localStorage.getItem('loggedUser');
+            if (!loggedUser) {
+                alert('❌ Faça login para acessar o chat.');
+                window.location.href = 'login.html';
+                return;
+            }
+
+            const urlParams = new URLSearchParams(window.location.search);
+            currentFriend = urlParams.get('friend');
+
+            if (!currentFriend) {
+                alert('❌ Nenhum amigo selecionado.');
+                window.location.href = 'amigos.html';
+                return;
+            }
+
+            const friendAccount = JSON.parse(localStorage.getItem(currentFriend));
+            const friendName = friendAccount ? friendAccount.nome : currentFriend;
+            document.getElementById('chatTitle').innerText = `Chat com ${friendName}`;
+
+            loadMessages();
+
+            document.getElementById('sendButton').addEventListener('click', sendMessage);
+            document.getElementById('messageInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendMessage();
+                }
+            });
+        });
+
+        function loadMessages() {
+            const loggedUser = localStorage.getItem('loggedUser');
+            const chatKey = `chat_${loggedUser}_${currentFriend}`;
+            const messages = JSON.parse(localStorage.getItem(chatKey) || '[]');
+            const container = document.getElementById('chatMessages');
+            container.innerHTML = '';
+
+            messages.forEach(msg => {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'message ' + (msg.sender === loggedUser ? 'sent' : 'received');
+                messageDiv.innerHTML = `
+                    <div>${msg.text}</div>
+                    <div style="font-size: 0.8rem; color: #666; text-align: ${msg.sender === loggedUser ? 'right' : 'left'};">${msg.time}</div>
+                `;
+                container.appendChild(messageDiv);
+            });
+
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function sendMessage() {
+            const loggedUser = localStorage.getItem('loggedUser');
+            const input = document.getElementById('messageInput');
+            const text = input.value.trim();
+
+            if (!text) return;
+
+            const now = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+            // Salva para remetente
+            const chatKey1 = `chat_${loggedUser}_${currentFriend}`;
+            let messages1 = JSON.parse(localStorage.getItem(chatKey1) || '[]');
+            messages1.push({ sender: loggedUser, text: text, time: now });
+            localStorage.setItem(chatKey1, JSON.stringify(messages1));
+
+            // Salva para destinatário
+            const chatKey2 = `chat_${currentFriend}_${loggedUser}`;
+            let messages2 = JSON.parse(localStorage.getItem(chatKey2) || '[]');
+            messages2.push({ sender: loggedUser, text: text, time: now });
+            localStorage.setItem(chatKey2, JSON.stringify(messages2));
+
+            input.value = '';
+            loadMessages();
+        }
+    </script>
+
+</body>
+</html>

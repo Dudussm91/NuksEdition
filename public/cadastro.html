@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cadastro - NuksEdition</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <header>
+        <h1>NuksEdition</h1>
+    </header>
+
+    <div class="form-container">
+        <div class="form-box">
+            <h2>Cadastrar</h2>
+            <form id="cadastroForm">
+                <input type="text" id="cadastroNome" placeholder="Nome Completo" required>
+                <input type="email" id="cadastroEmail" placeholder="E-mail" required>
+                <input type="password" id="cadastroSenha" placeholder="Senha" required>
+                <input type="password" id="cadastroConfirmar" placeholder="Confirmar Senha" required>
+                <button type="submit">Cadastrar</button>
+            </form>
+            <div id="mensagem"></div>
+            <p class="toggle-form">
+                Já tem conta? <a href="login.html">Faça login</a>
+            </p>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('cadastroForm');
+            if (form) {
+                form.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    cadastrarUsuario();
+                });
+            }
+        });
+    </script>
+
+</body>
+</html>
