@@ -325,12 +325,5 @@ app.post('/api/excluir-conta', (req, res) => {
     friendships.delete(email);
     pendingFriendRequests.delete(email);
 
-    // Remove chats (se estiver usando)
-    // Object.keys(chats).forEach(key => {
-    //     if (key.includes(email)) {
-    //         delete chats[key];
-    //     }
-    // });
-
     res.status(200).json({ message: 'Conta excluída com sucesso.' });
 });
