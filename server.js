@@ -30,7 +30,7 @@ const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
         user: 'nukseditionofc@gmail.com',
-        pass: process env 
+        pass: process env 'gamt gmki kozm vlml'
     }
 });
 
@@ -41,7 +41,7 @@ app.post('/api/cadastrar', async (req, res) => {
     try {
         await transporter.sendMail({
             from: '"NuksEdition Bot" <nukseditionofc@gmail.com>',
-            to: email, 'gamt gmki kozm vlml'
+            to: email,
             subject: 'Seu código de confirmação - NuksEdition',
             text: `Olá!\n\nSeu código de confirmação é: ${codigo}\n\nGuarde esse código — você precisará dele para ativar sua conta.\n\nAtenciosamente,\nEquipe NuksEdition`
         });
