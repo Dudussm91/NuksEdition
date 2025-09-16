@@ -62,24 +62,27 @@ async function cadastrarUsuario() {
     const codigo = Math.floor(1000 + Math.random() * 9000).toString();
 
     try {
+        console.log('✉️ Enviando requisição para /api/cadastrar');
         const response = await fetch('/api/cadastrar', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ nome, email, senha, codigo })
         });
 
+        console.log('📊 Status da resposta:', response.status);
+        const data = await response.json();
+        console.log('📝 Resposta do servidor:', data);
+
         if (response.ok) {
             alert(`✅ Enviamos um código para ${email}`);
-            // ✅ SALVA SÓ O E-MAIL PARA IDENTIFICAÇÃO (NÃO O CÓDIGO)
             localStorage.setItem('pendingEmail', email);
             window.location.href = 'confirmar.html';
         } else {
-            const error = await response.json();
-            alert(`❌ Falha ao enviar e-mail: ${error.error}`);
+            alert(`❌ Falha ao enviar e-mail: ${data.error}`);
         }
     } catch (error) {
-        console.error("Erro de conexão DETALHADO:", error);
-        alert('❌ Erro de conexão. Detalhes no console (F12 → Console).');
+        console.error('💥 Erro de conexão DETALHADO:', error);
+        alert('❌ Erro de conexão. Verifique o console (F12 → Console) para detalhes.');
     }
 }
 
@@ -472,3 +475,4 @@ function deleteAccount(email) {
     document.getElementById('codeModal').style.display = 'none';
     window.location.href = 'login.html';
 }
+
