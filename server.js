@@ -30,7 +30,7 @@ const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
         user: 'nukseditionofc@gmail.com',
-        pass: process env 'gamt gmki kozm vlml'
+        pass: process env.GMAIL_APP_PASSWORD
     }
 });
 
@@ -114,3 +114,4 @@ app.listen(PORT, () => {
     console.log(`🚀 Servidor rodando em http://localhost:${PORT}`);
     console.log(`✉️ Bot de e-mail ativo — pronto para enviar códigos reais!`);
 });
+
