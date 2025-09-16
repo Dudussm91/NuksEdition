@@ -87,12 +87,11 @@ async function cadastrarUsuario() {
 // =============
 
 async function confirmarCodigo() {
+    const email = document.getElementById('emailInput').value.trim();
     const codigoDigitado = document.getElementById('codigoInput').value.trim();
-    const email = localStorage.getItem('pendingEmail');
 
-    if (!email) {
-        alert('❌ Nenhum cadastro pendente.');
-        window.location.href = 'cadastro.html';
+    if (!email || !codigoDigitado) {
+        alert('❌ Preencha e-mail e código!');
         return;
     }
 
@@ -107,8 +106,7 @@ async function confirmarCodigo() {
 
         if (response.ok) {
             alert(`✅ ${data.message}`);
-            localStorage.setItem('loggedUser', email);
-            localStorage.removeItem('pendingEmail');
+            localStorage.setItem('loggedUser', email); // salva no localStorage do navegador atual
             window.location.href = 'home.html';
         } else {
             alert(`❌ ${data.error}`);
@@ -485,3 +483,4 @@ function deleteAccount(email) {
     document.getElementById('codeModal').style.display = 'none';
     window.location.href = 'login.html';
 }
+
