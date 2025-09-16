@@ -24,7 +24,7 @@ app.get('/', (req, res) => {
 
 // ✅ VALIDA CREDENCIAIS ANTES DE CRIAR O TRANSPORTER
 const gmailUser = 'nukseditionofc@gmail.com';
-const gmailPass = process.env.GMAIL_APP_PASSWORD;
+const gmailPass = process.env.gamt gmki kozm vlml;
 
 if (!gmailPass) {
     console.error('❌ ERRO FATAL: GMAIL_APP_PASSWORD não está definida!');
@@ -119,3 +119,4 @@ app.listen(PORT, () => {
     console.log(`🚀 Servidor rodando em http://localhost:${PORT}`);
     console.log(`✉️ Bot de e-mail ativo — pronto para enviar códigos reais!`);
 });
+
