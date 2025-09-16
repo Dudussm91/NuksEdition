@@ -60,7 +60,7 @@ async function cadastrarUsuario() {
 
     const codigo = Math.floor(1000 + Math.random() * 9000).toString();
 
-    // ✅ SALVA O EMAIL NO LOCALSTORAGE PARA USAR NA CONFIRMAÇÃO
+    // ✅ SALVA O EMAIL NO LOCALSTORAGE PARA USAR NA PÁGINA DE CONFIRMAÇÃO
     localStorage.setItem('pendingEmail', email);
 
     try {
@@ -485,6 +485,7 @@ function deleteAccount(email) {
     document.getElementById('codeModal').style.display = 'none';
     window.location.href = 'login.html';
 }
+
 
 
 
