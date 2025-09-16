@@ -36,25 +36,25 @@
                 return;
             }
 
-            // ✅ RECUPERA O NOME DO USUÁRIO SALVO NO LOCALSTORAGE
+            // ✅ TENTA PEGAR O NOME DO NOVO LOCALSTORAGE
             const nomeSalvo = localStorage.getItem('nomeUsuario');
             const userDisplay = document.getElementById('userName');
 
             if (nomeSalvo) {
                 userDisplay.innerText = `Olá, ${nomeSalvo}!`;
             } else {
-                // Se por algum motivo o nome não estiver salvo, tenta pegar do objeto antigo (fallback)
+                // Fallback: tenta pegar do formato antigo
                 const conta = JSON.parse(localStorage.getItem(emailLogado));
                 if (conta && conta.nome) {
                     userDisplay.innerText = `Olá, ${conta.nome}!`;
-                    // ✅ Salva no novo formato para futuras sessões
+                    // ✅ Atualiza para o novo formato
                     localStorage.setItem('nomeUsuario', conta.nome);
                 } else {
                     userDisplay.innerText = 'Olá, Usuário!';
                 }
             }
 
-            // Lógica do dropdown de usuário
+            // Lógica do dropdown
             const dropdown = document.getElementById('userDropdown');
             userDisplay.addEventListener('click', function() {
                 dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
@@ -69,3 +69,4 @@
     </script>
 </body>
 </html>
+
