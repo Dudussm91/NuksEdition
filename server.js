@@ -1,13 +1,10 @@
-// ✅ IMPORTAÇÕES (SEMPRE NO INÍCIO)
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
 
-// ✅ CRIA O APP (DEPOIS DAS IMPORTAÇÕES)
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000; // Render usa a porta 10000 por padrão
 
-// ✅ MIDDLEWARES
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -18,19 +15,13 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.static('public'));
 
-// ✅ ARMAZENA DADOS NO SERVIDOR (CLOUD)
-const users = new Map(); // { email: { nome, senha } }
-const pendingCodes = new Map(); // { email: { codigo, nome, senha, timestamp } }
-
-// ✅ DADOS PARA SISTEMA DE AMIGOS
-const pendingFriendRequests = new Map(); // { destinatarioEmail: [array de remetenteEmail] }
-const friendships = new Map(); // { email: new Set([array de amigos]) }
-
-// ✅ DADOS PARA SISTEMA DE NOTÍCIAS
-let news = []; // Array de objetos de notícias
-
-// ✅ DADOS PARA EXCLUSÃO DE CONTA
-const deleteCodes = new Map(); // { email: codigo }
+// ✅ DADOS NO SERVIDOR (CLOUD)
+const users = new Map();
+const pendingCodes = new Map();
+const pendingFriendRequests = new Map();
+const friendships = new Map();
+let news = [];
+const deleteCodes = new Map();
 
 // ✅ ROTA RAIZ
 app.get('/', (req, res) => {
@@ -38,9 +29,9 @@ app.get('/', (req, res) => {
 });
 
 // =============
-// CADASTRO (SIMULADO - SEM NODemailer)
+// CADASTRO (SIMULADO)
 // =============
-app.post('/api/cadastrar', async (req, res) => {
+app.post('/api/cadastrar', (req, res) => {
     const { nome, email, senha, codigo } = req.body;
 
     if (!nome || !email || !senha || !codigo) {
@@ -51,10 +42,11 @@ app.post('/api/cadastrar', async (req, res) => {
         return res.status(400).json({ error: 'Este e-mail já está cadastrado!' });
     }
 
-    // ✅ Simula envio de e-mail (sem Nodemailer)
-    console.log(`[SIMULADO] Código ${codigo} enviado para ${email}`);
+    // ✅ SIMULA ENVIO DE CÓDIGO (MOSTRA NO CONSOLE)
+    console.log(`[SIMULADO] Seu código de confirmação é: ${codigo} (para o e-mail: ${email})`);
+
     pendingCodes.set(email, { codigo, nome, senha, timestamp: Date.now() });
-    res.status(200).json({ message: 'Código gerado com sucesso! (simulado)' });
+    res.status(200).json({ message: 'Cadastro iniciado com sucesso! Verifique o console do servidor para o código.' });
 });
 
 // =============
@@ -77,13 +69,12 @@ app.post('/api/confirmar-codigo', (req, res) => {
     }
 
     users.set(email, { nome: pending.nome, senha: pending.senha });
-    // Inicializa listas de amigos
     friendships.set(email, new Set());
     pendingFriendRequests.set(email, []);
     pendingCodes.delete(email);
 
     res.status(200).json({
-        message: 'Código confirmado!',
+        message: 'Conta ativada com sucesso!',
         nome: pending.nome
     });
 });
@@ -117,7 +108,6 @@ app.post('/api/login', (req, res) => {
 // SISTEMA DE AMIGOS
 // =============
 
-// Adicionar Amigo
 app.post('/api/adicionar-amigo', (req, res) => {
     const { loggedUser, friendEmail } = req.body;
 
@@ -148,7 +138,6 @@ app.post('/api/adicionar-amigo', (req, res) => {
     res.status(200).json({ message: 'Convite de amizade enviado com sucesso!' });
 });
 
-// Carregar Convites Pendentes
 app.post('/api/convites-pendentes', (req, res) => {
     const { loggedUser } = req.body;
 
@@ -169,7 +158,6 @@ app.post('/api/convites-pendentes', (req, res) => {
     res.status(200).json({ invites: invites });
 });
 
-// Aceitar Amizade
 app.post('/api/aceitar-amizade', (req, res) => {
     const { loggedUser, inviterEmail } = req.body;
 
@@ -177,12 +165,10 @@ app.post('/api/aceitar-amizade', (req, res) => {
         return res.status(400).json({ error: 'Dados incompletos' });
     }
 
-    // Remove da lista de pendentes
     let pendingList = pendingFriendRequests.get(loggedUser) || [];
     pendingList = pendingList.filter(email => email !== inviterEmail);
     pendingFriendRequests.set(loggedUser, pendingList);
 
-    // Adiciona à lista de amigos de ambos
     if (!friendships.has(loggedUser)) friendships.set(loggedUser, new Set());
     if (!friendships.has(inviterEmail)) friendships.set(inviterEmail, new Set());
 
@@ -192,7 +178,6 @@ app.post('/api/aceitar-amizade', (req, res) => {
     res.status(200).json({ message: 'Amizade confirmada com sucesso!' });
 });
 
-// Carregar Meus Amigos
 app.post('/api/meus-amigos', (req, res) => {
     const { loggedUser } = req.body;
 
@@ -213,7 +198,6 @@ app.post('/api/meus-amigos', (req, res) => {
     res.status(200).json({ friends: friends });
 });
 
-// Remover Amigo
 app.post('/api/remover-amigo', (req, res) => {
     const { loggedUser, friendEmail } = req.body;
 
@@ -221,13 +205,11 @@ app.post('/api/remover-amigo', (req, res) => {
         return res.status(400).json({ error: 'Dados incompletos.' });
     }
 
-    // Remove da lista do usuário logado
     if (friendships.has(loggedUser)) {
         const friends = friendships.get(loggedUser);
         friends.delete(friendEmail);
     }
 
-    // Remove da lista do amigo
     if (friendships.has(friendEmail)) {
         const friends = friendships.get(friendEmail);
         friends.delete(loggedUser);
@@ -237,118 +219,8 @@ app.post('/api/remover-amigo', (req, res) => {
 });
 
 // =============
-// SISTEMA DE NOTÍCIAS
+// SISTEMA DE CHAT (FUNCIONA NA INTERNET!)
 // =============
-
-app.get('/api/noticias', (req, res) => {
-    const sortedNews = [...news].sort((a, b) => b.id - a.id);
-    res.status(200).json({ noticias: sortedNews });
-});
-
-app.post('/api/noticias', (req, res) => {
-    const { title, description, image, loggedUser } = req.body;
-
-    const admins = ['eduardomarangoni36@gmail.com', 'nukseditionofc@gmail.com'];
-    if (!admins.includes(loggedUser)) {
-        return res.status(403).json({ error: 'Acesso negado. Apenas administradores podem publicar.' });
-    }
-
-    if (!title || !description || !image) {
-        return res.status(400).json({ error: 'Todos os campos são obrigatórios.' });
-    }
-
-    const novaNoticia = {
-        id: Date.now().toString(),
-        title,
-        description,
-        image,
-        date: new Date().toLocaleDateString('pt-BR'),
-        author: loggedUser
-    };
-
-    news.push(novaNoticia);
-    res.status(201).json({ message: 'Notícia publicada com sucesso!', noticia: novaNoticia });
-});
-
-app.delete('/api/noticias/:id', (req, res) => {
-    const { id } = req.params;
-    const { loggedUser } = req.body;
-
-    const admins = ['eduardomarangoni36@gmail.com', 'nukseditionofc@gmail.com'];
-    if (!admins.includes(loggedUser)) {
-        return res.status(403).json({ error: 'Acesso negado. Apenas administradores podem excluir.' });
-    }
-
-    const tamanhoAnterior = news.length;
-    news = news.filter(n => n.id !== id);
-
-    if (news.length === tamanhoAnterior) {
-        return res.status(404).json({ error: 'Notícia não encontrada.' });
-    }
-
-    res.status(200).json({ message: 'Notícia excluída com sucesso!' });
-});
-
-// =============
-// EXCLUSÃO DE CONTA
-// =============
-
-app.post('/api/enviar-codigo-exclusao', async (req, res) => {
-    const { email, codigo } = req.body;
-
-    if (!email || !codigo) {
-        return res.status(400).json({ error: 'Dados incompletos' });
-    }
-
-    if (!users.has(email)) {
-        return res.status(400).json({ error: 'Usuário não encontrado.' });
-    }
-
-    // ✅ Simula envio de e-mail (sem Nodemailer)
-    console.log(`[SIMULADO] Código de exclusão ${codigo} enviado para ${email}`);
-    deleteCodes.set(email, codigo);
-    res.status(200).json({ message: 'Código de exclusão gerado com sucesso! (simulado)' });
-});
-
-app.post('/api/excluir-conta', (req, res) => {
-    const { email } = req.body;
-
-    if (!email) {
-        return res.status(400).json({ error: 'E-mail não fornecido.' });
-    }
-
-    if (!users.has(email)) {
-        return res.status(404).json({ error: 'Conta não encontrada.' });
-    }
-
-    // Remove o usuário
-    users.delete(email);
-
-    // Remove amigos e convites
-    friendships.delete(email);
-    pendingFriendRequests.delete(email);
-
-    res.status(200).json({ message: 'Conta excluída com sucesso.' });
-});
-
-// =============
-// SISTEMA DE CHAT
-// =============
-
-app.post('/api/obter-usuario', (req, res) => {
-    const { email } = req.body;
-
-    if (!email) {
-        return res.status(400).json({ error: 'E-mail não fornecido.' });
-    }
-
-    const user = users.get(email);
-    if (!user) {
-        return res.status(404).json({ error: 'Usuário não encontrado.' });
-    }
-
-    res.status(200).json({ nome: user.nome });
-});
 
 app.post('/api/enviar-mensagem', (req, res) => {
     const { sender, receiver, text } = req.body;
@@ -361,14 +233,11 @@ app.post('/api/enviar-mensagem', (req, res) => {
         return res.status(400).json({ error: 'Remetente ou destinatário não existe.' });
     }
 
-    // Cria uma chave única para o chat (ordem alfabética para consistência)
     const chatKey = [sender, receiver].sort().join('_');
 
-    // Inicializa o chat se não existir
     if (!global.chats) global.chats = {};
     if (!global.chats[chatKey]) global.chats[chatKey] = [];
 
-    // Adiciona a mensagem
     global.chats[chatKey].push({
         sender: sender,
         text: text,
@@ -398,6 +267,6 @@ app.post('/api/carregar-mensagens', (req, res) => {
 // =============
 app.listen(PORT, () => {
     console.log(`🚀 Servidor NuksEdition rodando em http://localhost:${PORT}`);
-    console.log(`✅ Sistema de e-mail SIMULADO ativado. Códigos aparecerão no console.`);
-    console.log(`✅ Tudo está salvo no servidor (cloud). Funciona entre PC e celular!`);
+    console.log(`✅ Tudo salvo no servidor (cloud) — funciona na internet!`);
+    console.log(`✅ Para se cadastrar, veja o console para o código de confirmação.`);
 });
