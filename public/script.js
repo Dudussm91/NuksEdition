@@ -61,13 +61,8 @@ async function cadastrarUsuario() {
 
     const codigo = Math.floor(1000 + Math.random() * 9000).toString();
 
-    localStorage.setItem('pendingEmail', email);
-    localStorage.setItem('pendingNome', nome);
-    localStorage.setItem('pendingSenha', senha);
-    localStorage.setItem('confirmationCode', codigo);
-
     try {
-        const response = await fetch('/api/cadastrar', { // ✅ ALTERADO: localhost → /
+        const response = await fetch('/api/cadastrar', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ nome, email, senha, codigo })
@@ -75,53 +70,58 @@ async function cadastrarUsuario() {
 
         if (response.ok) {
             alert(`✅ Enviamos um código para ${email}`);
+            // ✅ SALVA SÓ O E-MAIL PARA IDENTIFICAÇÃO (NÃO O CÓDIGO)
+            localStorage.setItem('pendingEmail', email);
+            window.location.href = 'confirmar.html';
         } else {
-            alert('❌ Falha ao enviar e-mail. Tente novamente.');
-            return;
+            const error = await response.json();
+            alert(`❌ Falha ao enviar e-mail: ${error.error}`);
         }
     } catch (error) {
-        console.error("Erro ao conectar com o servidor:", error);
-        alert('❌ Erro de conexão. Verifique se o servidor está rodando.');
-        return;
+        console.error("Erro de conexão DETALHADO:", error);
+        alert('❌ Erro de conexão. Detalhes no console (F12 → Console).');
     }
-
-    window.location.href = 'confirmar.html';
 }
 
 // =============
 // CONFIRMAÇÃO DE CÓDIGO
 // =============
 
-function confirmarCodigo() {
+async function confirmarCodigo() {
     const codigoDigitado = document.getElementById('codigoInput').value.trim();
-    const codigoSalvo = localStorage.getItem('confirmationCode');
-    const emailPendente = localStorage.getItem('pendingEmail');
-    const nomePendente = localStorage.getItem('pendingNome');
-    const senhaPendente = localStorage.getItem('pendingSenha');
+    const email = localStorage.getItem('pendingEmail');
 
-    if (!codigoSalvo || !emailPendente || !nomePendente || !senhaPendente) {
-        alert('❌ Nenhum cadastro pendente. Por favor, cadastre-se primeiro.');
+    if (!email) {
+        alert('❌ Nenhum cadastro pendente.');
         window.location.href = 'cadastro.html';
         return;
     }
 
-    if (codigoDigitado === codigoSalvo) {
-        localStorage.setItem(emailPendente, JSON.stringify({
-            nome: nomePendente,
-            senha: senhaPendente
-        }));
+    try {
+        const response = await fetch('/api/confirmar-codigo', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, codigo: codigoDigitado })
+        });
 
-        localStorage.setItem('loggedUser', emailPendente);
-        alert(`🎉 Código confirmado! Bem-vindo, ${nomePendente}!`);
-
-        localStorage.removeItem('pendingEmail');
-        localStorage.removeItem('pendingNome');
-        localStorage.removeItem('pendingSenha');
-        localStorage.removeItem('confirmationCode');
-
-        window.location.href = 'home.html';
-    } else {
-        alert('❌ Código incorreto. Tente novamente.');
+        if (response.ok) {
+            const data = await response.json();
+            // ✅ SALVA A CONTA APENAS APÓS CONFIRMAÇÃO
+            localStorage.setItem(email, JSON.stringify({
+                nome: data.nome,
+                senha: data.senha
+            }));
+            localStorage.setItem('loggedUser', email);
+            localStorage.removeItem('pendingEmail');
+            alert(`🎉 Código confirmado! Bem-vindo, ${data.nome}!`);
+            window.location.href = 'home.html';
+        } else {
+            const error = await response.json();
+            alert(`❌ ${error.error}`);
+        }
+    } catch (error) {
+        console.error("Erro ao confirmar código:", error);
+        alert('❌ Erro de conexão. Tente novamente.');
     }
 }
 
@@ -137,15 +137,14 @@ function reenviarCodigo() {
     }
 
     const novoCodigo = Math.floor(1000 + Math.random() * 9000).toString();
-    localStorage.setItem('confirmationCode', novoCodigo);
 
-    fetch('/api/cadastrar', { // ✅ ALTERADO: localhost → /
+    fetch('/api/cadastrar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            nome: localStorage.getItem('pendingNome'),
+            nome: "Usuário", // não usado, mas necessário
             email: emailPendente,
-            senha: localStorage.getItem('pendingSenha'),
+            senha: "senha", // não usado, mas necessário
             codigo: novoCodigo
         })
     })
@@ -163,7 +162,7 @@ function reenviarCodigo() {
 }
 
 // =============
-// SISTEMA DE AMIGOS — 100% FUNCIONAL
+// SISTEMA DE AMIGOS
 // =============
 
 let friendToRemove = null;
@@ -178,7 +177,6 @@ function addFriend(e) {
         return;
     }
 
-    // ✅ VALIDAÇÃO: NÃO PERMITE ADICIONAR A SI MESMO
     if (friendEmail === loggedUser) {
         alert('❌ Você não pode adicionar sua própria conta.');
         return;
@@ -204,14 +202,11 @@ function addFriend(e) {
         return;
     }
 
-    // ✅ ENVIA CONVITE
     pending.push(loggedUser);
     localStorage.setItem(pendingKey, JSON.stringify(pending));
 
     alert('✅ Amizade adicionada com sucesso!');
     document.getElementById('friendEmail').value = '';
-
-    // ✅ ATUALIZA LISTA DE CONVITES
     loadPendingInvites();
 }
 
@@ -279,7 +274,6 @@ function loadFriends() {
 function acceptFriend(inviterEmail) {
     const loggedUser = localStorage.getItem('loggedUser');
 
-    // Adiciona inviter aos meus amigos
     const myFriendsKey = `friends_${loggedUser}`;
     let myFriends = JSON.parse(localStorage.getItem(myFriendsKey) || '[]');
     if (!myFriends.includes(inviterEmail)) {
@@ -287,7 +281,6 @@ function acceptFriend(inviterEmail) {
         localStorage.setItem(myFriendsKey, JSON.stringify(myFriends));
     }
 
-    // Adiciona eu aos amigos do inviter
     const inviterFriendsKey = `friends_${inviterEmail}`;
     let inviterFriends = JSON.parse(localStorage.getItem(inviterFriendsKey) || '[]');
     if (!inviterFriends.includes(loggedUser)) {
@@ -295,15 +288,12 @@ function acceptFriend(inviterEmail) {
         localStorage.setItem(inviterFriendsKey, JSON.stringify(inviterFriends));
     }
 
-    // Remove convite pendente
     const pendingKey = `pending_${loggedUser}`;
     let pending = JSON.parse(localStorage.getItem(pendingKey) || '[]');
     pending = pending.filter(email => email !== inviterEmail);
     localStorage.setItem(pendingKey, JSON.stringify(pending));
 
     alert('✅ Amizade confirmada!');
-
-    // ✅ ATUALIZA LISTAS
     loadPendingInvites();
     loadFriends();
 }
@@ -316,8 +306,6 @@ function rejectFriend(inviterEmail) {
     localStorage.setItem(pendingKey, JSON.stringify(pending));
 
     alert('❌ Convite recusado.');
-
-    // ✅ ATUALIZA LISTA DE CONVITES
     loadPendingInvites();
 }
 
@@ -329,21 +317,17 @@ function removeFriend(friendEmail) {
 function confirmRemoveFriend(friendEmail) {
     const loggedUser = localStorage.getItem('loggedUser');
 
-    // Remove amigo da minha lista
     const myFriendsKey = `friends_${loggedUser}`;
     let myFriends = JSON.parse(localStorage.getItem(myFriendsKey) || '[]');
     myFriends = myFriends.filter(email => email !== friendEmail);
     localStorage.setItem(myFriendsKey, JSON.stringify(myFriends));
 
-    // Remove eu da lista do amigo
     const friendFriendsKey = `friends_${friendEmail}`;
     let friendFriends = JSON.parse(localStorage.getItem(friendFriendsKey) || '[]');
     friendFriends = friendFriends.filter(email => email !== loggedUser);
     localStorage.setItem(friendFriendsKey, JSON.stringify(friendFriends));
 
     alert('✅ Amigo removido.');
-
-    // ✅ ATUALIZA LISTA DE AMIGOS
     loadFriends();
 }
 
@@ -368,7 +352,7 @@ function createNews(e) {
     const reader = new FileReader();
 
     reader.onload = function(e) {
-        const imageUrl = e.target.result; // Base64 da imagem
+        const imageUrl = e.target.result;
         const id = Date.now().toString();
         const date = new Date().toLocaleDateString('pt-BR');
 
@@ -407,7 +391,6 @@ function loadNews() {
         return;
     }
 
-    // Ordena por data (mais recente primeiro)
     newsList.sort((a, b) => b.id - a.id);
 
     let html = '';
@@ -420,7 +403,6 @@ function loadNews() {
                 <p class="date">Publicado em: ${news.date}</p>
         `;
 
-        // Mostra botão de excluir só para admins
         if (isAdmin) {
             html += `<button class="delete-btn" onclick="deleteNews('${news.id}')">Excluir</button>`;
         }
@@ -457,11 +439,10 @@ function confirmDeleteNews() {
 let deleteCode = null;
 
 async function sendVerificationCode(email) {
-    // Gera código de 4 dígitos
     deleteCode = Math.floor(1000 + Math.random() * 9000).toString();
 
     try {
-        const response = await fetch('/api/enviar-codigo-exclusao', { // ✅ ALTERADO: localhost → /
+        const response = await fetch('/api/enviar-codigo-exclusao', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, codigo: deleteCode })
@@ -480,11 +461,9 @@ async function sendVerificationCode(email) {
 }
 
 function deleteAccount(email) {
-    // Remove conta do localStorage
     localStorage.removeItem(email);
     localStorage.removeItem('loggedUser');
 
-    // Remove dados de amigos e chats
     const friendsKey = `friends_${email}`;
     localStorage.removeItem(friendsKey);
 
