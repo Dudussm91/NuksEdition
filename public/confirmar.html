@@ -7,40 +7,52 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
     <header class="topbar">
         <h1>Confirmação de Cadastro</h1>
         <nav>
             <a href="login.html" class="btn-back">← Voltar</a>
         </nav>
     </header>
-
     <main class="friends-content">
         <section class="add-friend">
             <h2>Digite o código enviado para seu e-mail</h2>
             <form id="confirmForm">
-                <input type="email" id="emailInput" placeholder="Seu e-mail" required>
+                <!-- Removemos o input de e-mail -->
                 <input type="text" id="codigoInput" placeholder="Código de confirmação" required maxlength="4">
                 <button type="submit">Confirmar</button>
             </form>
+            <p style="margin-top: 20px; text-align: center;">
+                Não recebeu? <a href="#" onclick="reenviarCodigo()">Reenviar código</a>
+            </p>
         </section>
     </main>
-
     <script src="script.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Pega o e-mail do localStorage (salvo durante o cadastro)
+            const email = localStorage.getItem('pendingEmail');
+            if (!email) {
+                alert('❌ Nenhum cadastro pendente.');
+                window.location.href = 'cadastro.html';
+                return;
+            }
+
+            // Mostra o e-mail no HTML (opcional, para melhor UX)
+            document.getElementById('emailDisplay').innerText = email;
+
             document.getElementById('confirmForm').addEventListener('submit', function(e) {
                 e.preventDefault();
-                confirmarCodigo();
+                confirmarCodigo(email); // Passa o e-mail como parâmetro
             });
+
+            // Reenviar código
+            document.getElementById('reenviarCodigoBtn').addEventListener('click', reenviarCodigo);
         });
 
-        async function confirmarCodigo() {
-            const email = document.getElementById('emailInput').value.trim();
+        async function confirmarCodigo(email) {
             const codigoDigitado = document.getElementById('codigoInput').value.trim();
-
-            if (!email || !codigoDigitado) {
-                alert('❌ Preencha e-mail e código!');
+            if (!codigoDigitado) {
+                alert('❌ Preencha o código!');
                 return;
             }
 
@@ -65,7 +77,39 @@
                 alert('❌ Erro de conexão. Verifique sua internet.');
             }
         }
-    </script>
 
+        function reenviarCodigo() {
+            const emailPendente = localStorage.getItem('pendingEmail');
+            if (!emailPendente) {
+                alert('❌ Nenhum cadastro pendente.');
+                return;
+            }
+
+            const novoCodigo = Math.floor(1000 + Math.random() * 9000).toString();
+
+            fetch('/api/cadastrar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    nome: "Usuário",
+                    email: emailPendente,
+                    senha: "senha",
+                    codigo: novoCodigo
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message) {
+                    alert(`✅ ${data.message}`);
+                } else {
+                    alert(`❌ ${data.error}`);
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao reenviar:', error);
+                alert('❌ Erro de conexão. Verifique sua internet.');
+            });
+        }
+    </script>
 </body>
 </html>
