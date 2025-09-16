@@ -4,157 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Amigos - NuksEdition</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: Arial, sans-serif;
-            background: #f0f2f5;
-            padding: 20px;
-        }
-
-        .topbar {
-            background: #6a5acd;
-            color: white;
-            padding: 15px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            z-index: 100;
-        }
-
-        .btn-back {
-            background: #5a4abb;
-            color: white;
-            padding: 5px 10px;
-            text-decoration: none;
-            border-radius: 5px;
-        }
-
-        .friends-content {
-            margin-top: 100px;
-        }
-
-        .add-friend, .pending-invites, .my-friends {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-
-        .friend-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 15px;
-            background: #f9f9ff;
-            border-radius: 8px;
-            margin-bottom: 10px;
-        }
-
-        .friend-item button {
-            padding: 8px 12px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            margin-left: 5px;
-        }
-
-        .friend-item button:nth-child(1) {
-            background: #4caf50;
-            color: white;
-        }
-
-        .friend-item button:nth-child(2) {
-            background: #f44336;
-            color: white;
-        }
-
-        .friend-item button:nth-child(3) {
-            background: #ff6b6b;
-            color: white;
-        }
-
-        #confirmModal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-        }
-
-        #confirmModal > div {
-            background: white;
-            padding: 30px;
-            border-radius: 15px;
-            text-align: center;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-            max-width: 400px;
-        }
-
-        #confirmModal button {
-            padding: 10px 20px;
-            margin: 0 5px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-        }
-
-        #confirmYes {
-            background: #4caf50;
-            color: white;
-        }
-
-        #confirmNo {
-            background: #f44336;
-            color: white;
-        }
-
-        /* Estilos para inputs e botões */
-        input, button {
-            width: 100%;
-            padding: 10px;
-            margin: 10px 0;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 1rem;
-        }
-
-        button {
-            background: #6a5acd;
-            color: white;
-            cursor: pointer;
-        }
-
-        button:hover {
-            background: #5a4abb;
-        }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
     <header class="topbar">
         <h1>Amigos</h1>
         <nav>
             <a href="home.html" class="btn-back">← Voltar</a>
         </nav>
     </header>
-
     <main class="friends-content">
         <section class="add-friend">
             <h2>Adicionar Amigo</h2>
@@ -163,22 +21,19 @@
                 <button type="submit">Enviar Convite</button>
             </form>
         </section>
-
         <section class="pending-invites">
             <h2>Convites Pendentes</h2>
             <div id="pendingList">
-                <p>Nenhum convite pendente.</p>
+                <p>Carregando...</p>
             </div>
         </section>
-
         <section class="my-friends">
             <h2>Meus Amigos</h2>
             <div id="friendsList">
-                <p>Você ainda não tem amigos adicionados.</p>
+                <p>Carregando...</p>
             </div>
         </section>
     </main>
-
     <!-- Modal de Confirmação -->
     <div id="confirmModal">
         <div>
@@ -189,7 +44,7 @@
             </div>
         </div>
     </div>
-
+    <script src="script.js"></script>
     <script>
         let friendToRemove = null;
 
@@ -204,11 +59,14 @@
             loadPendingInvites();
             loadFriends();
 
-            document.getElementById('addFriendForm').addEventListener('submit', addFriend);
+            document.getElementById('addFriendForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                addFriend();
+            });
 
             document.getElementById('confirmYes').addEventListener('click', function() {
                 if (friendToRemove) {
-                    confirmRemoveFriend(friendToRemove);
+                    removeFriendConfirmed(friendToRemove);
                     friendToRemove = null;
                 }
                 document.getElementById('confirmModal').style.display = 'none';
@@ -220,8 +78,7 @@
             });
         });
 
-        function addFriend(e) {
-            e.preventDefault();
+        async function addFriend() {
             const loggedUser = localStorage.getItem('loggedUser');
             const friendEmail = document.getElementById('friendEmail').value.trim();
 
@@ -230,142 +87,143 @@
                 return;
             }
 
-            // ✅ VALIDAÇÃO: NÃO PERMITE ADICIONAR A SI MESMO
             if (friendEmail === loggedUser) {
                 alert('❌ Você não pode adicionar sua própria conta.');
                 return;
             }
 
-            const friendAccount = localStorage.getItem(friendEmail);
-            if (!friendAccount) {
-                alert('❌ Este usuário não existe.');
-                return;
+            try {
+                const response = await fetch('/api/adicionar-amigo', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ loggedUser, friendEmail })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert(`✅ ${data.message}`);
+                    document.getElementById('friendEmail').value = '';
+                    loadPendingInvites();
+                } else {
+                    alert(`❌ ${data.error}`);
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                alert('❌ Erro de conexão.');
             }
-
-            const friendsKey = `friends_${loggedUser}`;
-            const friends = JSON.parse(localStorage.getItem(friendsKey) || '[]');
-            if (friends.includes(friendEmail)) {
-                alert('✅ Vocês já são amigos!');
-                return;
-            }
-
-            const pendingKey = `pending_${friendEmail}`;
-            let pending = JSON.parse(localStorage.getItem(pendingKey) || '[]');
-            if (pending.includes(loggedUser)) {
-                alert('⏳ Convite já enviado. Aguarde a resposta.');
-                return;
-            }
-
-            // ✅ ENVIA CONVITE
-            pending.push(loggedUser);
-            localStorage.setItem(pendingKey, JSON.stringify(pending));
-
-            alert('✅ Amizade adicionada com sucesso!');
-            document.getElementById('friendEmail').value = '';
-
-            // ✅ ATUALIZA LISTA DE CONVITES
-            loadPendingInvites();
         }
 
-        function loadPendingInvites() {
+        async function loadPendingInvites() {
             const loggedUser = localStorage.getItem('loggedUser');
-            const pendingKey = `pending_${loggedUser}`;
-            const pending = JSON.parse(localStorage.getItem(pendingKey) || '[]');
-            const container = document.getElementById('pendingList');
+            if (!loggedUser) return;
 
-            if (pending.length === 0) {
-                container.innerHTML = '<p>Nenhum convite pendente.</p>';
-                return;
+            try {
+                const response = await fetch('/api/convites-pendentes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ loggedUser })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    const container = document.getElementById('pendingList');
+                    if (data.invites.length === 0) {
+                        container.innerHTML = '<p>Nenhum convite pendente.</p>';
+                        return;
+                    }
+
+                    let html = '';
+                    data.invites.forEach(invite => {
+                        html += `
+                            <div class="friend-item">
+                                <div>
+                                    <strong>${invite.nome}</strong><br>
+                                    <small>${invite.email}</small>
+                                </div>
+                                <div>
+                                    <button onclick="acceptFriend('${invite.email}')">Aceitar</button>
+                                    <button onclick="rejectFriend('${invite.email}')">Recusar</button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    container.innerHTML = html;
+                }
+            } catch (error) {
+                console.error('Erro ao carregar convites:', error);
             }
-
-            let html = '';
-            pending.forEach(inviterEmail => {
-                const inviterAccount = JSON.parse(localStorage.getItem(inviterEmail));
-                const inviterName = inviterAccount ? inviterAccount.nome : inviterEmail;
-                html += `
-                    <div class="friend-item">
-                        <div>
-                            <strong>${inviterName}</strong><br>
-                            <small>${inviterEmail}</small>
-                        </div>
-                        <div>
-                            <button onclick="acceptFriend('${inviterEmail}')">Aceitar</button>
-                            <button onclick="rejectFriend('${inviterEmail}')">Recusar</button>
-                        </div>
-                    </div>
-                `;
-            });
-
-            container.innerHTML = html;
         }
 
-        function loadFriends() {
+        async function loadFriends() {
             const loggedUser = localStorage.getItem('loggedUser');
-            const friendsKey = `friends_${loggedUser}`;
-            const friends = JSON.parse(localStorage.getItem(friendsKey) || '[]');
-            const container = document.getElementById('friendsList');
+            if (!loggedUser) return;
 
-            if (friends.length === 0) {
-                container.innerHTML = '<p>Você ainda não tem amigos adicionados.</p>';
-                return;
+            try {
+                const response = await fetch('/api/meus-amigos', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ loggedUser })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    const container = document.getElementById('friendsList');
+                    if (data.friends.length === 0) {
+                        container.innerHTML = '<p>Você ainda não tem amigos adicionados.</p>';
+                        return;
+                    }
+
+                    let html = '';
+                    data.friends.forEach(friend => {
+                        html += `
+                            <div class="friend-item">
+                                <div>
+                                    <strong>${friend.nome}</strong><br>
+                                    <small>${friend.email}</small>
+                                </div>
+                                <div>
+                                    <button onclick="openChat('${friend.email}')">Chat</button>
+                                    <button onclick="removeFriend('${friend.email}')">Remover</button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    container.innerHTML = html;
+                }
+            } catch (error) {
+                console.error('Erro ao carregar amigos:', error);
             }
-
-            let html = '';
-            friends.forEach(friendEmail => {
-                const friendAccount = JSON.parse(localStorage.getItem(friendEmail));
-                const friendName = friendAccount ? friendAccount.nome : friendEmail;
-                html += `
-                    <div class="friend-item">
-                        <div>
-                            <strong>${friendName}</strong><br>
-                            <small>${friendEmail}</small>
-                        </div>
-                        <div>
-                            <button onclick="openChat('${friendEmail}')">Chat</button>
-                            <button onclick="removeFriend('${friendEmail}')">Remover</button>
-                        </div>
-                    </div>
-                `;
-            });
-
-            container.innerHTML = html;
         }
 
-        function acceptFriend(inviterEmail) {
+        async function acceptFriend(inviterEmail) {
             const loggedUser = localStorage.getItem('loggedUser');
+            if (!loggedUser) return;
 
-            const myFriendsKey = `friends_${loggedUser}`;
-            let myFriends = JSON.parse(localStorage.getItem(myFriendsKey) || '[]');
-            if (!myFriends.includes(inviterEmail)) {
-                myFriends.push(inviterEmail);
-                localStorage.setItem(myFriendsKey, JSON.stringify(myFriends));
+            try {
+                const response = await fetch('/api/aceitar-amizade', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ loggedUser, inviterEmail })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert('✅ Amizade confirmada!');
+                    loadPendingInvites();
+                    loadFriends();
+                } else {
+                    alert(`❌ ${data.error}`);
+                }
+            } catch (error) {
+                console.error('Erro ao aceitar amizade:', error);
             }
-
-            const inviterFriendsKey = `friends_${inviterEmail}`;
-            let inviterFriends = JSON.parse(localStorage.getItem(inviterFriendsKey) || '[]');
-            if (!inviterFriends.includes(loggedUser)) {
-                inviterFriends.push(loggedUser);
-                localStorage.setItem(inviterFriendsKey, JSON.stringify(inviterFriends));
-            }
-
-            const pendingKey = `pending_${loggedUser}`;
-            let pending = JSON.parse(localStorage.getItem(pendingKey) || '[]');
-            pending = pending.filter(email => email !== inviterEmail);
-            localStorage.setItem(pendingKey, JSON.stringify(pending));
-
-            alert('✅ Amizade confirmada!');
-
-            loadPendingInvites();
-            loadFriends();
         }
 
         function rejectFriend(inviterEmail) {
-            const loggedUser = localStorage.getItem('loggedUser');
-            const pendingKey = `pending_${loggedUser}`;
-            let pending = JSON.parse(localStorage.getItem(pendingKey) || '[]');
-            pending = pending.filter(email => email !== inviterEmail);
-            localStorage.setItem(pendingKey, JSON.stringify(pending));
-
             alert('❌ Convite recusado.');
             loadPendingInvites();
         }
@@ -375,27 +233,33 @@
             document.getElementById('confirmModal').style.display = 'flex';
         }
 
-        function confirmRemoveFriend(friendEmail) {
+        async function removeFriendConfirmed(friendEmail) {
             const loggedUser = localStorage.getItem('loggedUser');
+            if (!loggedUser) return;
 
-            const myFriendsKey = `friends_${loggedUser}`;
-            let myFriends = JSON.parse(localStorage.getItem(myFriendsKey) || '[]');
-            myFriends = myFriends.filter(email => email !== friendEmail);
-            localStorage.setItem(myFriendsKey, JSON.stringify(myFriends));
+            try {
+                const response = await fetch('/api/remover-amigo', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ loggedUser, friendEmail })
+                });
 
-            const friendFriendsKey = `friends_${friendEmail}`;
-            let friendFriends = JSON.parse(localStorage.getItem(friendFriendsKey) || '[]');
-            friendFriends = friendFriends.filter(email => email !== loggedUser);
-            localStorage.setItem(friendFriendsKey, JSON.stringify(friendFriends));
+                const data = await response.json();
 
-            alert('✅ Amigo removido.');
-            loadFriends();
+                if (response.ok) {
+                    alert('✅ Amigo removido.');
+                    loadFriends();
+                } else {
+                    alert(`❌ ${data.error}`);
+                }
+            } catch (error) {
+                console.error('Erro ao remover amigo:', error);
+            }
         }
 
         function openChat(friendEmail) {
             window.location.href = `chat.html?friend=${encodeURIComponent(friendEmail)}`;
         }
     </script>
-
 </body>
 </html>
