@@ -17,7 +17,7 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.static('public'));
 
-// ✅ ARMAZENA DADOS NO SERVIDOR
+// ✅ ARMAZENA DADOS NO SERVIDOR (CLOUD)
 const users = new Map(); // { email: { nome, senha } }
 const pendingCodes = new Map(); // { email: { codigo, nome, senha, timestamp } }
 
@@ -210,12 +210,55 @@ app.post('/api/aceitar-amizade', (req, res) => {
     res.status(200).json({ message: 'Amizade confirmada com sucesso!' });
 });
 
+// Carregar Meus Amigos
+app.post('/api/meus-amigos', (req, res) => {
+    const { loggedUser } = req.body;
+
+    if (!loggedUser) {
+        return res.status(400).json({ error: 'Usuário não autenticado.' });
+    }
+
+    const friendEmails = Array.from(friendships.get(loggedUser) || []);
+
+    const friends = friendEmails.map(email => {
+        const user = users.get(email);
+        return {
+            email: email,
+            nome: user ? user.nome : email
+        };
+    });
+
+    res.status(200).json({ friends: friends });
+});
+
+// Remover Amigo
+app.post('/api/remover-amigo', (req, res) => {
+    const { loggedUser, friendEmail } = req.body;
+
+    if (!loggedUser || !friendEmail) {
+        return res.status(400).json({ error: 'Dados incompletos.' });
+    }
+
+    // Remove da lista do usuário logado
+    if (friendships.has(loggedUser)) {
+        const friends = friendships.get(loggedUser);
+        friends.delete(friendEmail);
+    }
+
+    // Remove da lista do amigo
+    if (friendships.has(friendEmail)) {
+        const friends = friendships.get(friendEmail);
+        friends.delete(loggedUser);
+    }
+
+    res.status(200).json({ message: 'Amigo removido com sucesso.' });
+});
+
 // =============
 // SISTEMA DE NOTÍCIAS
 // =============
 
 app.get('/api/noticias', (req, res) => {
-    // Retorna todas as notícias, ordenadas por ID (mais recente primeiro)
     const sortedNews = [...news].sort((a, b) => b.id - a.id);
     res.status(200).json({ noticias: sortedNews });
 });
@@ -295,18 +338,6 @@ app.post('/api/enviar-codigo-exclusao', async (req, res) => {
     }
 });
 
-// =============
-// INICIA O SERVIDOR
-// =============
-app.listen(PORT, () => {
-    console.log(`🚀 Servidor NuksEdition rodando em http://localhost:${PORT}`);
-    console.log(`✉️  Bot de e-mail ativo — pronto para enviar códigos reais!`);
-    console.log(`🔐 Para usar o Gmail, configure a variável de ambiente: GMAIL_APP_PASSWORD`);
-});
-
-// =============
-// EXCLUSÃO DE CONTA (FINAL)
-// =============
 app.post('/api/excluir-conta', (req, res) => {
     const { email } = req.body;
 
@@ -326,4 +357,13 @@ app.post('/api/excluir-conta', (req, res) => {
     pendingFriendRequests.delete(email);
 
     res.status(200).json({ message: 'Conta excluída com sucesso.' });
+});
+
+// =============
+// INICIA O SERVIDOR
+// =============
+app.listen(PORT, () => {
+    console.log(`🚀 Servidor NuksEdition rodando em http://localhost:${PORT}`);
+    console.log(`✉️  Bot de e-mail ativo — pronto para enviar códigos reais!`);
+    console.log(`🔐 Para usar o Gmail, configure a variável de ambiente: GMAIL_APP_PASSWORD`);
 });
