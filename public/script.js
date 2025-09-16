@@ -37,41 +37,29 @@ async function fazerLogin() {
 // CADASTRO
 // =============
 
-async function cadastrarUsuario() {
-    const nome = document.getElementById('cadastroNome').value.trim();
-    const email = document.getElementById('cadastroEmail').value.trim();
-    const senha = document.getElementById('cadastroSenha').value.trim();
-    const confirmar = document.getElementById('cadastroConfirmar').value.trim();
+async function confirmarCodigo() {
+    const email = document.getElementById('emailInput').value.trim();
+    const codigoDigitado = document.getElementById('codigoInput').value.trim();
 
-    if (!nome || !email || !senha || !confirmar) {
-        alert('❌ Preencha todos os campos!');
+    if (!email || !codigoDigitado) {
+        alert('❌ Preencha e-mail e código!');
         return;
     }
-
-    if (senha.length < 6) {
-        alert('❌ A senha deve ter pelo menos 6 caracteres!');
-        return;
-    }
-
-    if (senha !== confirmar) {
-        alert('❌ As senhas não coincidem!');
-        return;
-    }
-
-    const codigo = Math.floor(1000 + Math.random() * 9000).toString();
 
     try {
-        const response = await fetch('/api/cadastrar', {
+        const response = await fetch('/api/confirmar-codigo', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nome, email, senha, codigo })
+            body: JSON.stringify({ email, codigo: codigoDigitado })
         });
 
         const data = await response.json();
 
         if (response.ok) {
             alert(`✅ ${data.message}`);
-            window.location.href = 'confirmar.html';
+            localStorage.setItem('loggedUser', email); // salva o e-mail
+            localStorage.setItem('nomeUsuario', data.nome); // ✅ salva o nome
+            window.location.href = 'home.html';
         } else {
             alert(`❌ ${data.error}`);
         }
@@ -482,6 +470,7 @@ function deleteAccount(email) {
     document.getElementById('codeModal').style.display = 'none';
     window.location.href = 'login.html';
 }
+
 
 
 
