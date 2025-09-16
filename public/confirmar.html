@@ -13,46 +13,45 @@
             <a href="login.html" class="btn-back">← Voltar</a>
         </nav>
     </header>
-    <main class="friends-content">
-        <section class="add-friend">
-            <h2>Digite o código enviado para seu e-mail</h2>
+    <main class="form-container">
+        <div class="form-box">
+            <h2>Confirme seu Código</h2>
+            <p id="emailHint" style="margin-bottom: 20px; color: #6a5acd; font-weight: 500;">Enviado para: <strong>carregando...</strong></p>
             <form id="confirmForm">
-                <!-- Removemos o input de e-mail -->
-                <input type="text" id="codigoInput" placeholder="Código de confirmação" required maxlength="4">
-                <button type="submit">Confirmar</button>
+                <input type="text" id="codigoInput" placeholder="Digite o código de 4 dígitos" required maxlength="4" style="text-align: center; font-size: 1.2rem;">
+                <button type="submit">Confirmar Código</button>
             </form>
-            <p style="margin-top: 20px; text-align: center;">
-                Não recebeu? <a href="#" onclick="reenviarCodigo()">Reenviar código</a>
+            <p style="margin-top: 20px; font-size: 0.95rem;">
+                Não recebeu? <a href="#" onclick="reenviarCodigo(); return false;" style="color: #6a5acd; font-weight: 600; text-decoration: none;">Reenviar código</a>
             </p>
-        </section>
+        </div>
     </main>
     <script src="script.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Pega o e-mail do localStorage (salvo durante o cadastro)
             const email = localStorage.getItem('pendingEmail');
+
             if (!email) {
-                alert('❌ Nenhum cadastro pendente.');
+                alert('❌ Nenhum cadastro pendente. Por favor, cadastre-se novamente.');
                 window.location.href = 'cadastro.html';
                 return;
             }
 
-            // Mostra o e-mail no HTML (opcional, para melhor UX)
-            document.getElementById('emailDisplay').innerText = email;
+            // Mostra o e-mail para o usuário
+            document.getElementById('emailHint').querySelector('strong').innerText = email;
 
+            // Envia o formulário
             document.getElementById('confirmForm').addEventListener('submit', function(e) {
                 e.preventDefault();
-                confirmarCodigo(email); // Passa o e-mail como parâmetro
+                confirmarCodigo(email); // Passa o e-mail diretamente
             });
-
-            // Reenviar código
-            document.getElementById('reenviarCodigoBtn').addEventListener('click', reenviarCodigo);
         });
 
         async function confirmarCodigo(email) {
             const codigoDigitado = document.getElementById('codigoInput').value.trim();
+
             if (!codigoDigitado) {
-                alert('❌ Preencha o código!');
+                alert('❌ Preencha o código de confirmação!');
                 return;
             }
 
@@ -67,7 +66,9 @@
 
                 if (response.ok) {
                     alert(`✅ ${data.message}`);
+                    // ✅ SALVA O NOME DO USUÁRIO NO LOCALSTORAGE (PARA MOSTRAR NO HOME)
                     localStorage.setItem('loggedUser', email);
+                    localStorage.setItem('nomeUsuario', data.nome); // <-- ISSO É NOVO E IMPORTANTE!
                     window.location.href = 'home.html';
                 } else {
                     alert(`❌ ${data.error}`);
