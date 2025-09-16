@@ -7,7 +7,6 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
     <header class="topbar">
         <div class="user-menu">
             <span id="userName" class="user-display">Olá, Usuário!</span>
@@ -23,28 +22,40 @@
             <a href="login.html" class="btn-logout">Sair</a>
         </nav>
     </header>
-
     <main class="content">
         <h2>Bem-vindo à sua página inicial!</h2>
         <p>Aqui você pode explorar, pesquisar, conversar com amigos e ver as últimas notícias.</p>
     </main>
-
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const emailLogado = localStorage.getItem('loggedUser');
-            if (emailLogado) {
-                const conta = JSON.parse(localStorage.getItem(emailLogado));
-                if (conta && conta.nome) {
-                    document.getElementById('userName').innerText = `Olá, ${conta.nome}!`;
-                }
-            } else {
+
+            if (!emailLogado) {
                 alert('❌ Você precisa estar logado para acessar esta página.');
                 window.location.href = 'login.html';
+                return;
             }
 
+            // ✅ RECUPERA O NOME DO USUÁRIO SALVO NO LOCALSTORAGE
+            const nomeSalvo = localStorage.getItem('nomeUsuario');
             const userDisplay = document.getElementById('userName');
-            const dropdown = document.getElementById('userDropdown');
 
+            if (nomeSalvo) {
+                userDisplay.innerText = `Olá, ${nomeSalvo}!`;
+            } else {
+                // Se por algum motivo o nome não estiver salvo, tenta pegar do objeto antigo (fallback)
+                const conta = JSON.parse(localStorage.getItem(emailLogado));
+                if (conta && conta.nome) {
+                    userDisplay.innerText = `Olá, ${conta.nome}!`;
+                    // ✅ Salva no novo formato para futuras sessões
+                    localStorage.setItem('nomeUsuario', conta.nome);
+                } else {
+                    userDisplay.innerText = 'Olá, Usuário!';
+                }
+            }
+
+            // Lógica do dropdown de usuário
+            const dropdown = document.getElementById('userDropdown');
             userDisplay.addEventListener('click', function() {
                 dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
             });
@@ -56,6 +67,5 @@
             });
         });
     </script>
-
 </body>
 </html>
