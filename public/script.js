@@ -71,7 +71,6 @@ async function cadastrarUsuario() {
 
         if (response.ok) {
             alert(`✅ ${data.message}`);
-            localStorage.setItem('pendingEmail', email); // só para identificação no confirmar.html
             window.location.href = 'confirmar.html';
         } else {
             alert(`❌ ${data.error}`);
@@ -483,4 +482,5 @@ function deleteAccount(email) {
     document.getElementById('codeModal').style.display = 'none';
     window.location.href = 'login.html';
 }
+
 
