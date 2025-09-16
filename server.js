@@ -1,10 +1,12 @@
 const express = require('express');
 const cors = require('cors');
+const nodemailer = require('nodemailer');
 const path = require('path');
 
 const app = express();
-const PORT = process.env.PORT || 10000; // Render usa a porta 10000 por padrão
+const PORT = process.env.PORT || 10000;
 
+// ✅ CORS
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -15,7 +17,7 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.static('public'));
 
-// ✅ DADOS NO SERVIDOR (CLOUD)
+// ✅ DADOS NO SERVIDOR
 const users = new Map();
 const pendingCodes = new Map();
 const pendingFriendRequests = new Map();
@@ -28,10 +30,19 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
+// ✅ CONFIGURAÇÃO DO NODemailer (ENVIA E-MAIL REAL)
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: 'nukseditionofc@gmail.com',
+        pass: process.env.GMAIL_APP_PASSWORD // <-- USA A SENHA DE APP DO GMAIL
+    }
+});
+
 // =============
-// CADASTRO (SIMULADO)
+// CADASTRO (ENVIA E-MAIL REAL)
 // =============
-app.post('/api/cadastrar', (req, res) => {
+app.post('/api/cadastrar', async (req, res) => {
     const { nome, email, senha, codigo } = req.body;
 
     if (!nome || !email || !senha || !codigo) {
@@ -42,11 +53,21 @@ app.post('/api/cadastrar', (req, res) => {
         return res.status(400).json({ error: 'Este e-mail já está cadastrado!' });
     }
 
-    // ✅ SIMULA ENVIO DE CÓDIGO (MOSTRA NO CONSOLE)
-    console.log(`[SIMULADO] Seu código de confirmação é: ${codigo} (para o e-mail: ${email})`);
+    try {
+        // ✅ ENVIA E-MAIL REAL PARA O GMAIL DA PESSOA
+        await transporter.sendMail({
+            from: '"NuksEdition Bot" <nukseditionofc@gmail.com>',
+            to: email,
+            subject: 'Seu código de confirmação - NuksEdition',
+            text: `Olá, ${nome}!\n\nSeu código de confirmação é: ${codigo}\n\nGuarde esse código — você precisará dele para ativar sua conta.\n\nAtenciosamente,\nEquipe NuksEdition`
+        });
 
-    pendingCodes.set(email, { codigo, nome, senha, timestamp: Date.now() });
-    res.status(200).json({ message: 'Cadastro iniciado com sucesso! Verifique o console do servidor para o código.' });
+        pendingCodes.set(email, { codigo, nome, senha, timestamp: Date.now() });
+        res.status(200).json({ message: 'Código enviado com sucesso para seu e-mail!' });
+    } catch (error) {
+        console.error('Erro ao enviar e-mail:', error.message);
+        res.status(500).json({ error: 'Erro ao enviar e-mail. Verifique a senha de app do Gmail.' });
+    }
 });
 
 // =============
@@ -219,7 +240,7 @@ app.post('/api/remover-amigo', (req, res) => {
 });
 
 // =============
-// SISTEMA DE CHAT (FUNCIONA NA INTERNET!)
+// SISTEMA DE CHAT
 // =============
 
 app.post('/api/enviar-mensagem', (req, res) => {
@@ -263,10 +284,59 @@ app.post('/api/carregar-mensagens', (req, res) => {
 });
 
 // =============
+// EXCLUSÃO DE CONTA (ENVIA E-MAIL REAL)
+// =============
+
+app.post('/api/enviar-codigo-exclusao', async (req, res) => {
+    const { email, codigo } = req.body;
+
+    if (!email || !codigo) {
+        return res.status(400).json({ error: 'Dados incompletos' });
+    }
+
+    if (!users.has(email)) {
+        return res.status(400).json({ error: 'Usuário não encontrado.' });
+    }
+
+    try {
+        // ✅ ENVIA E-MAIL REAL PARA O GMAIL DA PESSOA
+        await transporter.sendMail({
+            from: '"NuksEdition Bot" <nukseditionofc@gmail.com>',
+            to: email,
+            subject: 'Código de Exclusão de Conta - NuksEdition',
+            text: `Olá!\n\nVocê solicitou a exclusão da sua conta.\n\nSeu código de confirmação é: ${codigo}\n\nSe você não solicitou isso, ignore este e-mail.\n\nAtenciosamente,\nEquipe NuksEdition`
+        });
+
+        deleteCodes.set(email, codigo);
+        res.status(200).json({ message: 'Código de exclusão enviado com sucesso para seu e-mail!' });
+    } catch (error) {
+        console.error('Erro ao enviar código de exclusão:', error.message);
+        res.status(500).json({ error: 'Erro ao enviar e-mail. Verifique a senha de app do Gmail.' });
+    }
+});
+
+app.post('/api/excluir-conta', (req, res) => {
+    const { email } = req.body;
+
+    if (!email) {
+        return res.status(400).json({ error: 'E-mail não fornecido.' });
+    }
+
+    if (!users.has(email)) {
+        return res.status(404).json({ error: 'Conta não encontrada.' });
+    }
+
+    users.delete(email);
+    friendships.delete(email);
+    pendingFriendRequests.delete(email);
+
+    res.status(200).json({ message: 'Conta excluída com sucesso.' });
+});
+
+// =============
 // INICIA O SERVIDOR
 // =============
 app.listen(PORT, () => {
     console.log(`🚀 Servidor NuksEdition rodando em http://localhost:${PORT}`);
-    console.log(`✅ Tudo salvo no servidor (cloud) — funciona na internet!`);
-    console.log(`✅ Para se cadastrar, veja o console para o código de confirmação.`);
+    console.log(`✉️  Bot de e-mail REAL ativo — enviando códigos para o Gmail dos usuários!`);
 });
