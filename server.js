@@ -36,52 +36,22 @@ async function fazerLogin() {
 // =============
 // CADASTRO
 // =============
-async function cadastrarUsuario() {
-    const nome = document.getElementById('cadastroNome').value.trim();
-    const email = document.getElementById('cadastroEmail').value.trim();
-    const senha = document.getElementById('cadastroSenha').value.trim();
-    const confirmar = document.getElementById('cadastroConfirmar').value.trim();
+app.post('/api/cadastrar', async (req, res) => {
+    const { nome, email, senha, codigo } = req.body;
 
-    if (!nome || !email || !senha || !confirmar) {
-        alert('❌ Preencha todos os campos!');
-        return;
+    if (!nome || !email || !senha || !codigo) {
+        return res.status(400).json({ error: 'Dados incompletos' });
     }
 
-    if (senha.length < 6) {
-        alert('❌ A senha deve ter pelo menos 6 caracteres!');
-        return;
+    if (users.has(email)) {
+        return res.status(400).json({ error: 'Este e-mail já está cadastrado!' });
     }
 
-    if (senha !== confirmar) {
-        alert('❌ As senhas não coincidem!');
-        return;
-    }
-
-    const codigo = Math.floor(1000 + Math.random() * 9000).toString();
-
-    localStorage.setItem('pendingEmail', email); // Salva para usar na confirmação
-
-    try {
-        const response = await fetch('/api/cadastrar', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nome, email, senha, codigo })
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            alert(`✅ ${data.message}`);
-            window.location.href = 'confirmar.html';
-        } else {
-            alert(`❌ ${data.error}`);
-        }
-    } catch (error) {
-        console.error('Erro de conexão:', error);
-        alert('❌ Erro de conexão. Verifique sua internet.');
-    }
-}
-
+    // ✅ Simula envio de e-mail (sem Nodemailer)
+    console.log(`[SIMULADO] Código ${codigo} enviado para ${email}`);
+    pendingCodes.set(email, { codigo, nome, senha, timestamp: Date.now() });
+    res.status(200).json({ message: 'Código gerado com sucesso! (simulado)' });
+});
 // =============
 // CONFIRMAÇÃO DE CÓDIGO
 // =============
@@ -604,3 +574,4 @@ async function sendMessage() {
         alert('❌ Erro de conexão. Verifique sua internet.');
     }
 }
+
