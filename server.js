@@ -303,3 +303,34 @@ app.listen(PORT, () => {
     console.log(`✉️  Bot de e-mail ativo — pronto para enviar códigos reais!`);
     console.log(`🔐 Para usar o Gmail, configure a variável de ambiente: GMAIL_APP_PASSWORD`);
 });
+
+// =============
+// EXCLUSÃO DE CONTA (FINAL)
+// =============
+app.post('/api/excluir-conta', (req, res) => {
+    const { email } = req.body;
+
+    if (!email) {
+        return res.status(400).json({ error: 'E-mail não fornecido.' });
+    }
+
+    if (!users.has(email)) {
+        return res.status(404).json({ error: 'Conta não encontrada.' });
+    }
+
+    // Remove o usuário
+    users.delete(email);
+
+    // Remove amigos e convites
+    friendships.delete(email);
+    pendingFriendRequests.delete(email);
+
+    // Remove chats (se estiver usando)
+    // Object.keys(chats).forEach(key => {
+    //     if (key.includes(email)) {
+    //         delete chats[key];
+    //     }
+    // });
+
+    res.status(200).json({ message: 'Conta excluída com sucesso.' });
+});
