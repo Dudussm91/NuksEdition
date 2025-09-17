@@ -30,13 +30,17 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
-// ✅ CONFIGURAÇÃO DO NODemailer (ENVIA E-MAIL REAL)
+// ✅ CONFIGURAÇÃO DO NODemailer COM PROXY HTTP (PARA BURLAR O BLOQUEIO DO RENDER)
 const transporter = nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,
     auth: {
         user: 'nukseditionofc@gmail.com',
-        pass: process.env.GMAIL_APP_PASSWORD // <-- USA A SENHA DE APP DO GMAIL
-    }
+        pass: process.env.GMAIL_APP_PASSWORD
+    },
+    // ✅ USA UM PROXY HTTP PARA BURLAR O BLOQUEIO DO RENDER
+    proxy: 'http://proxy-server.render.com:8080' // <-- Render permite HTTP, então usamos um proxy
 });
 
 // =============
