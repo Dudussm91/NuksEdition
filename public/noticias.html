@@ -42,8 +42,6 @@
     </div>
     <script src="script.js"></script>
     <script>
-        let newsToDelete = null;
-
         document.addEventListener('DOMContentLoaded', function() {
             const loggedUser = localStorage.getItem('loggedUser');
             if (!loggedUser) {
@@ -67,126 +65,7 @@
 
             loadNews();
         });
-
-        function createNews(e) {
-            e.preventDefault();
-            const fileInput = document.getElementById('newsImageFile');
-            const title = document.getElementById('newsTitle').value.trim();
-            const description = document.getElementById('newsDescription').value.trim();
-
-            if (!fileInput.files[0] || !title || !description) {
-                alert('❌ Preencha todos os campos!');
-                return;
-            }
-
-            const file = fileInput.files[0];
-            const reader = new FileReader();
-
-            reader.onload = function(e) {
-                const imageUrl = e.target.result;
-                const loggedUser = localStorage.getItem('loggedUser');
-
-                fetch('https://nuksedition.onrender.com/api/noticias', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        title: title,
-                        description: description,
-                        image: imageUrl,
-                        loggedUser: loggedUser
-                    })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.message) {
-                        alert('✅ Notícia publicada com sucesso!');
-                        document.getElementById('newsForm').reset();
-                        loadNews();
-                    } else {
-                        alert(`❌ ${data.error}`);
-                    }
-                })
-                .catch(error => {
-                    console.error('Erro ao publicar notícia:', error);
-                    alert('❌ Erro de conexão.');
-                });
-            };
-
-            reader.readAsDataURL(file);
-        }
-
-        function loadNews() {
-            fetch('https://nuksedition.onrender.com/api/noticias')
-            .then(response => response.json())
-            .then(data => {
-                const loggedUser = localStorage.getItem('loggedUser');
-                const admins = ['eduardomarangoni36@gmail.com', 'nukseditionofc@gmail.com'];
-                const isAdmin = admins.includes(loggedUser);
-
-                const newsList = data.noticias || [];
-                const container = document.getElementById('newsList');
-
-                if (newsList.length === 0) {
-                    container.innerHTML = '<p>Nenhuma notícia publicada ainda.</p>';
-                    return;
-                }
-
-                let html = '';
-                newsList.forEach(news => {
-                    html += `
-                        <div class="news-item">
-                            <img src="${news.image}" alt="${news.title}" style="width:100%; max-height:300px; object-fit:cover; border-radius:10px; margin-bottom:20px;">
-                            <h3>${news.title}</h3>
-                            <p>${news.description}</p>
-                            <p class="date">Publicado em: ${news.date}</p>
-                    `;
-
-                    if (isAdmin) {
-                        html += `<button class="delete-btn" onclick="deleteNews('${news.id}')">Excluir</button>`;
-                    }
-
-                    html += `</div>`;
-                });
-
-                container.innerHTML = html;
-            })
-            .catch(error => {
-                console.error('Erro ao carregar notícias:', error);
-                document.getElementById('newsList').innerHTML = '<p>❌ Erro ao carregar notícias.</p>';
-            });
-        }
-
-        function deleteNews(newsId) {
-            newsToDelete = newsId;
-            document.getElementById('confirmDeleteModal').style.display = 'flex';
-        }
-
-        function confirmDeleteNews() {
-            if (!newsToDelete) return;
-
-            const loggedUser = localStorage.getItem('loggedUser');
-
-            fetch(`https://nuksedition.onrender.com/api/noticias/${newsToDelete}`, {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ loggedUser: loggedUser })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.message) {
-                    alert('✅ Notícia excluída com sucesso!');
-                    newsToDelete = null;
-                    document.getElementById('confirmDeleteModal').style.display = 'none';
-                    loadNews();
-                } else {
-                    alert(`❌ ${data.error}`);
-                }
-            })
-            .catch(error => {
-                console.error('Erro ao excluir notícia:', error);
-                alert('❌ Erro de conexão.');
-            });
-        }
     </script>
 </body>
 </html>
+
