@@ -369,7 +369,7 @@ function createNews(e) {
         const imageUrl = e.target.result;
         const loggedUser = localStorage.getItem('loggedUser');
 
-        fetch(`${API_URL}/api/noticias`, {
+        fetch('https://nuksedition.onrender.com/api/noticias', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -399,7 +399,7 @@ function createNews(e) {
 }
 
 function loadNews() {
-    fetch(`${API_URL}/api/noticias`)
+    fetch('https://nuksedition.onrender.com/api/noticias')
     .then(response => response.json())
     .then(data => {
         const loggedUser = localStorage.getItem('loggedUser');
@@ -449,7 +449,7 @@ function confirmDeleteNews() {
 
     const loggedUser = localStorage.getItem('loggedUser');
 
-    fetch(`${API_URL}/api/noticias/${newsToDelete}`, {
+    fetch(`https://nuksedition.onrender.com/api/noticias/${newsToDelete}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ loggedUser: loggedUser })
@@ -607,3 +607,4 @@ async function sendMessage() {
         alert('❌ Erro de conexão. Verifique sua internet.');
     }
 }
+
