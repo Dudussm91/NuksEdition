@@ -1,14 +1,12 @@
-// ✅ IMPORTAÇÕES (SEMPRE NO INÍCIO)
 const express = require('express');
 const cors = require('cors');
 const nodemailer = require('nodemailer');
 const path = require('path');
 
-// ✅ CRIA O APP (DEPOIS DAS IMPORTAÇÕES)
 const app = express();
-const PORT = process.env.PORT || 10000; // Render usa 10000 por padrão
+const PORT = process.env.PORT || 10000;
 
-// ✅ MIDDLEWARES
+// ✅ CORS
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -19,18 +17,12 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.static('public'));
 
-// ✅ ARMAZENA DADOS NO SERVIDOR (CLOUD)
+// ✅ DADOS NO SERVIDOR (CLOUD)
 const users = new Map(); // { email: { nome, senha } }
 const pendingCodes = new Map(); // { email: { codigo, nome, senha, timestamp } }
-
-// ✅ DADOS PARA SISTEMA DE AMIGOS
 const pendingFriendRequests = new Map(); // { destinatarioEmail: [array de remetenteEmail] }
 const friendships = new Map(); // { email: new Set([array de amigos]) }
-
-// ✅ DADOS PARA SISTEMA DE NOTÍCIAS
 let news = []; // Array de objetos de notícias
-
-// ✅ DADOS PARA EXCLUSÃO DE CONTA
 const deleteCodes = new Map(); // { email: codigo }
 
 // ✅ ROTA RAIZ
@@ -43,7 +35,7 @@ const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
         user: 'nukseditionofc@gmail.com',
-        pass: process.env.GMAIL_APP_PASSWORD // ⚠️ Configure esta variável de ambiente!
+        pass: process.env.GMAIL_APP_PASSWORD
     }
 });
 
@@ -97,7 +89,6 @@ app.post('/api/confirmar-codigo', (req, res) => {
     }
 
     users.set(email, { nome: pending.nome, senha: pending.senha });
-    // Inicializa listas de amigos
     friendships.set(email, new Set());
     pendingFriendRequests.set(email, []);
     pendingCodes.delete(email);
@@ -137,7 +128,6 @@ app.post('/api/login', (req, res) => {
 // SISTEMA DE AMIGOS
 // =============
 
-// Adicionar Amigo
 app.post('/api/adicionar-amigo', (req, res) => {
     const { loggedUser, friendEmail } = req.body;
 
@@ -168,7 +158,6 @@ app.post('/api/adicionar-amigo', (req, res) => {
     res.status(200).json({ message: 'Convite de amizade enviado com sucesso!' });
 });
 
-// Carregar Convites Pendentes
 app.post('/api/convites-pendentes', (req, res) => {
     const { loggedUser } = req.body;
 
@@ -189,7 +178,6 @@ app.post('/api/convites-pendentes', (req, res) => {
     res.status(200).json({ invites: invites });
 });
 
-// Aceitar Amizade
 app.post('/api/aceitar-amizade', (req, res) => {
     const { loggedUser, inviterEmail } = req.body;
 
@@ -197,12 +185,10 @@ app.post('/api/aceitar-amizade', (req, res) => {
         return res.status(400).json({ error: 'Dados incompletos' });
     }
 
-    // Remove da lista de pendentes
     let pendingList = pendingFriendRequests.get(loggedUser) || [];
     pendingList = pendingList.filter(email => email !== inviterEmail);
     pendingFriendRequests.set(loggedUser, pendingList);
 
-    // Adiciona à lista de amigos de ambos
     if (!friendships.has(loggedUser)) friendships.set(loggedUser, new Set());
     if (!friendships.has(inviterEmail)) friendships.set(inviterEmail, new Set());
 
@@ -212,7 +198,6 @@ app.post('/api/aceitar-amizade', (req, res) => {
     res.status(200).json({ message: 'Amizade confirmada com sucesso!' });
 });
 
-// Carregar Meus Amigos
 app.post('/api/meus-amigos', (req, res) => {
     const { loggedUser } = req.body;
 
@@ -233,7 +218,6 @@ app.post('/api/meus-amigos', (req, res) => {
     res.status(200).json({ friends: friends });
 });
 
-// Remover Amigo
 app.post('/api/remover-amigo', (req, res) => {
     const { loggedUser, friendEmail } = req.body;
 
@@ -241,13 +225,11 @@ app.post('/api/remover-amigo', (req, res) => {
         return res.status(400).json({ error: 'Dados incompletos.' });
     }
 
-    // Remove da lista do usuário logado
     if (friendships.has(loggedUser)) {
         const friends = friendships.get(loggedUser);
         friends.delete(friendEmail);
     }
 
-    // Remove da lista do amigo
     if (friendships.has(friendEmail)) {
         const friends = friendships.get(friendEmail);
         friends.delete(loggedUser);
@@ -351,10 +333,7 @@ app.post('/api/excluir-conta', (req, res) => {
         return res.status(404).json({ error: 'Conta não encontrada.' });
     }
 
-    // Remove o usuário
     users.delete(email);
-
-    // Remove amigos e convites
     friendships.delete(email);
     pendingFriendRequests.delete(email);
 
@@ -391,14 +370,11 @@ app.post('/api/enviar-mensagem', (req, res) => {
         return res.status(400).json({ error: 'Remetente ou destinatário não existe.' });
     }
 
-    // Cria uma chave única para o chat (ordem alfabética para consistência)
     const chatKey = [sender, receiver].sort().join('_');
 
-    // Inicializa o chat se não existir
     if (!global.chats) global.chats = {};
     if (!global.chats[chatKey]) global.chats[chatKey] = [];
 
-    // Adiciona a mensagem
     global.chats[chatKey].push({
         sender: sender,
         text: text,
