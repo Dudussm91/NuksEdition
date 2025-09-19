@@ -4,8 +4,9 @@ const nodemailer = require('nodemailer');
 const path = require('path');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 
+// ✅ CORS
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -16,17 +17,20 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.static('public'));
 
-const users = new Map();
-const pendingCodes = new Map();
-const pendingFriendRequests = new Map();
-const friendships = new Map();
-let news = [];
-const deleteCodes = new Map();
+// ✅ DADOS NO SERVIDOR (CLOUD)
+const users = new Map(); // { email: { nome, senha } }
+const pendingCodes = new Map(); // { email: { codigo, nome, senha, timestamp } }
+const pendingFriendRequests = new Map(); // { destinatarioEmail: [array de remetenteEmail] }
+const friendships = new Map(); // { email: new Set([array de amigos]) }
+let news = []; // Array de objetos de notícias
+const deleteCodes = new Map(); // { email: codigo }
 
+// ✅ ROTA RAIZ
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
+// ✅ CONFIGURAÇÃO DO NODemailer
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
@@ -35,6 +39,9 @@ const transporter = nodemailer.createTransport({
     }
 });
 
+// =============
+// CADASTRO
+// =============
 app.post('/api/cadastrar', async (req, res) => {
     const { nome, email, senha, codigo } = req.body;
 
@@ -62,6 +69,9 @@ app.post('/api/cadastrar', async (req, res) => {
     }
 });
 
+// =============
+// CONFIRMAÇÃO DE CÓDIGO
+// =============
 app.post('/api/confirmar-codigo', (req, res) => {
     const { email, codigo } = req.body;
 
@@ -89,6 +99,9 @@ app.post('/api/confirmar-codigo', (req, res) => {
     });
 });
 
+// =============
+// LOGIN
+// =============
 app.post('/api/login', (req, res) => {
     const { email, senha } = req.body;
 
@@ -110,6 +123,10 @@ app.post('/api/login', (req, res) => {
         nome: user.nome
     });
 });
+
+// =============
+// SISTEMA DE AMIGOS
+// =============
 
 app.post('/api/adicionar-amigo', (req, res) => {
     const { loggedUser, friendEmail } = req.body;
@@ -221,6 +238,10 @@ app.post('/api/remover-amigo', (req, res) => {
     res.status(200).json({ message: 'Amigo removido com sucesso.' });
 });
 
+// =============
+// SISTEMA DE NOTÍCIAS
+// =============
+
 app.get('/api/noticias', (req, res) => {
     const sortedNews = [...news].sort((a, b) => b.id - a.id);
     res.status(200).json({ noticias: sortedNews });
@@ -270,6 +291,10 @@ app.delete('/api/noticias/:id', (req, res) => {
     res.status(200).json({ message: 'Notícia excluída com sucesso!' });
 });
 
+// =============
+// EXCLUSÃO DE CONTA
+// =============
+
 app.post('/api/enviar-codigo-exclusao', async (req, res) => {
     const { email, codigo } = req.body;
 
@@ -314,6 +339,10 @@ app.post('/api/excluir-conta', (req, res) => {
 
     res.status(200).json({ message: 'Conta excluída com sucesso.' });
 });
+
+// =============
+// SISTEMA DE CHAT
+// =============
 
 app.post('/api/obter-usuario', (req, res) => {
     const { email } = req.body;
@@ -370,5 +399,11 @@ app.post('/api/carregar-mensagens', (req, res) => {
     res.status(200).json({ messages: messages });
 });
 
-// ✅ EXPORTA O APP PARA O VERCEL (NÃO USE app.listen)
-module.exports = app;
+// =============
+// INICIA O SERVIDOR
+// =============
+app.listen(PORT, () => {
+    console.log(`🚀 Servidor NuksEdition rodando em http://localhost:${PORT}`);
+    console.log(`✉️  Bot de e-mail ativo — pronto para enviar códigos reais!`);
+    console.log(`🔐 Para usar o Gmail, configure a variável de ambiente: GMAIL_APP_PASSWORD`);
+});
