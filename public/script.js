@@ -349,7 +349,7 @@ function openChat(friendEmail) {
 // SISTEMA DE NOTÍCIAS
 // =============
 
-let newsToDelete = null;
+let newsToDelete = null; // ✅ DECLARADO APENAS AQUI — NÃO REPITA NO HTML!
 
 function createNews(e) {
     e.preventDefault();
@@ -470,7 +470,6 @@ function confirmDeleteNews() {
         alert('❌ Erro de conexão.');
     });
 }
-
 // =============
 // EXCLUSÃO DE CONTA
 // =============
@@ -607,6 +606,7 @@ async function sendMessage() {
         alert('❌ Erro de conexão. Verifique sua internet.');
     }
 }
+
 
 
 
