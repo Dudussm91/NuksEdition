@@ -1,5 +1,5 @@
 // ✅ SUBSTITUA "https://seu-app.onrender.com" PELO URL DO SEU SERVIÇO NO RENDER
-const API_URL = 'https://seu-app.onrender.com'; // <-- ALTERE ISSO!
+const API_URL = 'https://nuksedition.onrender.com'; // <-- ALTERE ISSO!
 
 // =============
 // LOGIN
@@ -607,3 +607,4 @@ async function sendMessage() {
         alert('❌ Erro de conexão. Verifique sua internet.');
     }
 }
+
