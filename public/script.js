@@ -1,9 +1,6 @@
-// ✅ SUBSTITUA "https://seu-app.onrender.com" PELO URL DO SEU SERVIÇO NO RENDER
-const API_URL = 'https://nuksedition.onrender.com'; // <-- ALTERE ISSO!
+// ✅ URL DO SEU SERVIÇO NO VERCEL
+const API_URL = 'https://nuksedition.vercel.app'; // <-- ALTERE SE PRECISAR
 
-// =============
-// LOGIN
-// =============
 async function fazerLogin() {
     const email = document.getElementById('loginEmail').value.trim();
     const senha = document.getElementById('loginSenha').value.trim();
@@ -36,9 +33,6 @@ async function fazerLogin() {
     }
 }
 
-// =============
-// CADASTRO
-// =============
 async function cadastrarUsuario() {
     const nome = document.getElementById('cadastroNome').value.trim();
     const email = document.getElementById('cadastroEmail').value.trim();
@@ -85,9 +79,6 @@ async function cadastrarUsuario() {
     }
 }
 
-// =============
-// CONFIRMAÇÃO DE CÓDIGO
-// =============
 async function confirmarCodigo() {
     const email = localStorage.getItem('pendingEmail');
     const codigoDigitado = document.getElementById('codigoInput').value.trim();
@@ -120,9 +111,6 @@ async function confirmarCodigo() {
     }
 }
 
-// =============
-// REENVIAR CÓDIGO
-// =============
 function reenviarCodigo() {
     const emailPendente = localStorage.getItem('pendingEmail');
     if (!emailPendente) {
@@ -155,10 +143,6 @@ function reenviarCodigo() {
         alert('❌ Erro de conexão. Verifique sua internet.');
     });
 }
-
-// =============
-// SISTEMA DE AMIGOS
-// =============
 
 let friendToRemove = null;
 
@@ -345,10 +329,6 @@ function openChat(friendEmail) {
     window.location.href = `chat.html?friend=${encodeURIComponent(friendEmail)}`;
 }
 
-// =============
-// SISTEMA DE NOTÍCIAS
-// =============
-
 let newsToDelete = null;
 
 function createNews(e) {
@@ -471,10 +451,6 @@ function confirmDeleteNews() {
     });
 }
 
-// =============
-// EXCLUSÃO DE CONTA
-// =============
-
 let deleteCode = null;
 
 async function sendVerificationCode(email) {
@@ -526,10 +502,6 @@ async function deleteAccount(email) {
         alert('❌ Erro de conexão. Tente novamente.');
     }
 }
-
-// =============
-// SISTEMA DE CHAT
-// =============
 
 async function loadMessages() {
     const loggedUser = localStorage.getItem('loggedUser');
