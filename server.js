@@ -370,5 +370,5 @@ app.post('/api/carregar-mensagens', (req, res) => {
     res.status(200).json({ messages: messages });
 });
 
-// ✅ EXPORTA O APP PARA O VERCEL
+// ✅ EXPORTA O APP PARA O VERCEL (NÃO USE app.listen)
 module.exports = app;
