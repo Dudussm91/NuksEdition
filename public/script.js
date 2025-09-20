@@ -349,7 +349,7 @@ function openChat(friendEmail) {
 // SISTEMA DE NOTÍCIAS
 // =============
 
-let newsToDelete = null; // ✅ DECLARADO APENAS AQUI — NÃO REPITA NO HTML!
+let newsToDelete = null;
 
 function createNews(e) {
     e.preventDefault();
@@ -379,7 +379,12 @@ function createNews(e) {
                 loggedUser: loggedUser
             })
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Erro HTTP: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.message) {
                 alert('✅ Notícia publicada com sucesso!');
@@ -391,8 +396,12 @@ function createNews(e) {
         })
         .catch(error => {
             console.error('Erro ao publicar notícia:', error);
-            alert('❌ Erro de conexão.');
+            alert('❌ Erro ao publicar notícia. Verifique o tamanho da imagem ou sua conexão.');
         });
+    };
+
+    reader.onerror = function() {
+        alert('❌ Erro ao ler a imagem. Tente outra imagem.');
     };
 
     reader.readAsDataURL(file);
@@ -606,6 +615,7 @@ async function sendMessage() {
         alert('❌ Erro de conexão. Verifique sua internet.');
     }
 }
+
 
 
 
