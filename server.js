@@ -1,623 +1,339 @@
- ✅ URL DO SEU SERVIÇO NO RENDER
-const API_URL = 'https://nuksedition.onrender.com';
+const express = require('express');
+const cors = require('cors');
+const nodemailer = require('nodemailer');
+const path = require('path');
 
-// =============
-// LOGIN
-// =============
-async function fazerLogin() {
-    const email = document.getElementById('loginEmail').value.trim();
-    const senha = document.getElementById('loginSenha').value.trim();
+const app = express();
+const PORT = process.env.PORT || 10000;
 
-    if (!email || !senha) {
-        alert('❌ Preencha e-mail e senha!');
-        return;
+// ✅ AUMENTA O LIMITE DE TAMANHO DO CORPO DA REQUISIÇÃO
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    next();
+});
+
+// ✅ ESTA LINHA É A CHAVE: SERVE ARQUIVOS ESTÁTICOS SEM NENHUMA INTERFERÊNCIA
+app.use(express.static('public'));
+
+const users = new Map();
+const pendingCodes = new Map();
+const pendingFriendRequests = new Map();
+const friendships = new Map();
+let news = [];
+const deleteCodes = new Map();
+
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: 'nukseditionofc@gmail.com',
+        pass: process.env.GMAIL_APP_PASSWORD
     }
+});
 
+app.post('/api/cadastrar', async (req, res) => {
+    const { nome, email, senha, codigo } = req.body;
+    if (!nome || !email || !senha || !codigo) {
+        return res.status(400).json({ error: 'Dados incompletos' });
+    }
+    if (users.has(email)) {
+        return res.status(400).json({ error: 'Este e-mail já está cadastrado!' });
+    }
     try {
-        const response = await fetch(`${API_URL}/api/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, senha })
+        await transporter.sendMail({
+            from: '"NuksEdition Bot" <nukseditionofc@gmail.com>',
+            to: email,
+            subject: 'Seu código de confirmação - NuksEdition',
+            text: `Olá, ${nome}!
+Seu código de confirmação é: ${codigo}
+Guarde esse código — você precisará dele para ativar sua conta.
+Atenciosamente,
+Equipe NuksEdition`
         });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            alert(`✅ ${data.message}`);
-            localStorage.setItem('loggedUser', email);
-            localStorage.setItem('nomeUsuario', data.nome);
-            window.location.href = 'home.html';
-        } else {
-            alert(`❌ ${data.error}`);
-        }
+        pendingCodes.set(email, { codigo, nome, senha, timestamp: Date.now() });
+        res.status(200).json({ message: 'Código enviado com sucesso para seu e-mail!' });
     } catch (error) {
-        console.error('Erro de conexão:', error);
-        alert('❌ Erro de conexão. Verifique sua internet.');
+        console.error('Erro ao enviar e-mail:', error.message);
+        res.status(500).json({ error: 'Erro ao enviar e-mail. Verifique a senha de app do Gmail.' });
     }
-}
+});
 
-// =============
-// CADASTRO
-// =============
-async function cadastrarUsuario() {
-    const nome = document.getElementById('cadastroNome').value.trim();
-    const email = document.getElementById('cadastroEmail').value.trim();
-    const senha = document.getElementById('cadastroSenha').value.trim();
-    const confirmar = document.getElementById('cadastroConfirmar').value.trim();
-
-    if (!nome || !email || !senha || !confirmar) {
-        alert('❌ Preencha todos os campos!');
-        return;
+app.post('/api/confirmar-codigo', (req, res) => {
+    const { email, codigo } = req.body;
+    if (!email || !codigo) {
+        return res.status(400).json({ error: 'Dados incompletos' });
     }
-
-    if (senha.length < 6) {
-        alert('❌ A senha deve ter pelo menos 6 caracteres!');
-        return;
+    const pending = pendingCodes.get(email);
+    if (!pending) {
+        return res.status(400).json({ error: 'Nenhum cadastro pendente.' });
     }
-
-    if (senha !== confirmar) {
-        alert('❌ As senhas não coincidem!');
-        return;
+    if (pending.codigo !== codigo) {
+        return res.status(400).json({ error: 'Código incorreto.' });
     }
-
-    const codigo = Math.floor(1000 + Math.random() * 9000).toString();
-
-    localStorage.setItem('pendingEmail', email);
-
-    try {
-        const response = await fetch(`${API_URL}/api/cadastrar`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nome, email, senha, codigo })
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            alert(`✅ ${data.message}`);
-            window.location.href = 'confirmar.html';
-        } else {
-            alert(`❌ ${data.error}`);
-        }
-    } catch (error) {
-        console.error('Erro de conexão:', error);
-        alert('❌ Erro de conexão. Verifique sua internet.');
-    }
-}
-
-// =============
-// CONFIRMAÇÃO DE CÓDIGO
-// =============
-async function confirmarCodigo() {
-    const email = localStorage.getItem('pendingEmail');
-    const codigoDigitado = document.getElementById('codigoInput').value.trim();
-
-    if (!email || !codigoDigitado) {
-        alert('❌ Preencha e-mail e código!');
-        return;
-    }
-
-    try {
-        const response = await fetch(`${API_URL}/api/confirmar-codigo`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, codigo: codigoDigitado })
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            alert(`✅ ${data.message}`);
-            localStorage.setItem('loggedUser', email);
-            localStorage.setItem('nomeUsuario', data.nome);
-            window.location.href = 'home.html';
-        } else {
-            alert(`❌ ${data.error}`);
-        }
-    } catch (error) {
-        console.error('Erro de conexão:', error);
-        alert('❌ Erro de conexão. Verifique sua internet.');
-    }
-}
-
-// =============
-// REENVIAR CÓDIGO
-// =============
-function reenviarCodigo() {
-    const emailPendente = localStorage.getItem('pendingEmail');
-    if (!emailPendente) {
-        alert('❌ Nenhum cadastro pendente.');
-        return;
-    }
-
-    const novoCodigo = Math.floor(1000 + Math.random() * 9000).toString();
-
-    fetch(`${API_URL}/api/cadastrar`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            nome: "Usuário",
-            email: emailPendente,
-            senha: "senha",
-            codigo: novoCodigo
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.message) {
-            alert(`✅ ${data.message}`);
-        } else {
-            alert(`❌ ${data.error}`);
-        }
-    })
-    .catch(error => {
-        console.error('Erro ao reenviar:', error);
-        alert('❌ Erro de conexão. Verifique sua internet.');
+    users.set(email, { nome: pending.nome, senha: pending.senha });
+    friendships.set(email, new Set());
+    pendingFriendRequests.set(email, []);
+    pendingCodes.delete(email);
+    res.status(200).json({
+        message: 'Código confirmado!',
+        nome: pending.nome
     });
-}
+});
 
-// =============
-// SISTEMA DE AMIGOS
-// =============
-
-let friendToRemove = null;
-
-async function addFriend() {
-    const loggedUser = localStorage.getItem('loggedUser');
-    const friendEmail = document.getElementById('friendEmail').value.trim();
-
-    if (!friendEmail) {
-        alert('❌ Digite o e-mail do amigo.');
-        return;
+app.post('/api/login', (req, res) => {
+    const { email, senha } = req.body;
+    if (!email || !senha) {
+        return res.status(400).json({ error: 'Preencha e-mail e senha!' });
     }
-
-    if (friendEmail === loggedUser) {
-        alert('❌ Você não pode adicionar sua própria conta.');
-        return;
+    const user = users.get(email);
+    if (!user) {
+        return res.status(400).json({ error: 'E-mail não cadastrado!' });
     }
-
-    try {
-        const response = await fetch(`${API_URL}/api/adicionar-amigo`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ loggedUser, friendEmail })
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            alert(`✅ ${data.message}`);
-            document.getElementById('friendEmail').value = '';
-            loadPendingInvites();
-        } else {
-            alert(`❌ ${data.error}`);
-        }
-    } catch (error) {
-        console.error('Erro:', error);
-        alert('❌ Erro de conexão.');
+    if (user.senha !== senha) {
+        return res.status(400).json({ error: 'Senha incorreta!' });
     }
-}
+    res.status(200).json({
+        message: 'Login bem-sucedido!',
+        nome: user.nome
+    });
+});
 
-async function loadPendingInvites() {
-    const loggedUser = localStorage.getItem('loggedUser');
-    if (!loggedUser) return;
-
-    try {
-        const response = await fetch(`${API_URL}/api/convites-pendentes`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ loggedUser })
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            const container = document.getElementById('pendingList');
-            if (data.invites.length === 0) {
-                container.innerHTML = '<p>Nenhum convite pendente.</p>';
-                return;
-            }
-
-            let html = '';
-            data.invites.forEach(invite => {
-                html += `
-                    <div class="friend-item">
-                        <div>
-                            <strong>${invite.nome}</strong><br>
-                            <small>${invite.email}</small>
-                        </div>
-                        <div>
-                            <button onclick="acceptFriend('${invite.email}')">Aceitar</button>
-                            <button onclick="rejectFriend('${invite.email}')">Recusar</button>
-                        </div>
-                    </div>
-                `;
-            });
-            container.innerHTML = html;
-        }
-    } catch (error) {
-        console.error('Erro ao carregar convites:', error);
+app.post('/api/adicionar-amigo', (req, res) => {
+    const { loggedUser, friendEmail } = req.body;
+    if (!loggedUser || !friendEmail) {
+        return res.status(400).json({ error: 'Dados incompletos' });
     }
-}
-
-async function loadFriends() {
-    const loggedUser = localStorage.getItem('loggedUser');
-    if (!loggedUser) return;
-
-    try {
-        const response = await fetch(`${API_URL}/api/meus-amigos`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ loggedUser })
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            const container = document.getElementById('friendsList');
-            if (data.friends.length === 0) {
-                container.innerHTML = '<p>Você ainda não tem amigos adicionados.</p>';
-                return;
-            }
-
-            let html = '';
-            data.friends.forEach(friend => {
-                html += `
-                    <div class="friend-item">
-                        <div>
-                            <strong>${friend.nome}</strong><br>
-                            <small>${friend.email}</small>
-                        </div>
-                        <div>
-                            <button onclick="openChat('${friend.email}')">Chat</button>
-                            <button onclick="removeFriend('${friend.email}')">Remover</button>
-                        </div>
-                    </div>
-                `;
-            });
-            container.innerHTML = html;
-        }
-    } catch (error) {
-        console.error('Erro ao carregar amigos:', error);
+    if (loggedUser === friendEmail) {
+        return res.status(400).json({ error: 'Você não pode adicionar sua própria conta.' });
     }
-}
-
-async function acceptFriend(inviterEmail) {
-    const loggedUser = localStorage.getItem('loggedUser');
-    if (!loggedUser) return;
-
-    try {
-        const response = await fetch(`${API_URL}/api/aceitar-amizade`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ loggedUser, inviterEmail })
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            alert('✅ Amizade confirmada!');
-            loadPendingInvites();
-            loadFriends();
-        } else {
-            alert(`❌ ${data.error}`);
-        }
-    } catch (error) {
-        console.error('Erro ao aceitar amizade:', error);
+    if (!users.has(friendEmail)) {
+        return res.status(400).json({ error: 'Este usuário não existe.' });
     }
-}
-
-function rejectFriend(inviterEmail) {
-    alert('❌ Convite recusado.');
-    loadPendingInvites();
-}
-
-function removeFriend(friendEmail) {
-    friendToRemove = friendEmail;
-    document.getElementById('confirmModal').style.display = 'flex';
-}
-
-async function removeFriendConfirmed(friendEmail) {
-    const loggedUser = localStorage.getItem('loggedUser');
-    if (!loggedUser) return;
-
-    try {
-        const response = await fetch(`${API_URL}/api/remover-amigo`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ loggedUser, friendEmail })
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            alert('✅ Amigo removido.');
-            loadFriends();
-        } else {
-            alert(`❌ ${data.error}`);
-        }
-    } catch (error) {
-        console.error('Erro ao remover amigo:', error);
+    if (friendships.get(loggedUser)?.has(friendEmail)) {
+        return res.status(400).json({ error: 'Vocês já são amigos!' });
     }
-}
+    let pendingList = pendingFriendRequests.get(friendEmail) || [];
+    if (pendingList.includes(loggedUser)) {
+        return res.status(400).json({ error: 'Convite já enviado. Aguarde a resposta.' });
+    }
+    pendingList.push(loggedUser);
+    pendingFriendRequests.set(friendEmail, pendingList);
+    res.status(200).json({ message: 'Convite de amizade enviado com sucesso!' });
+});
 
-function openChat(friendEmail) {
-    window.location.href = `chat.html?friend=${encodeURIComponent(friendEmail)}`;
-}
+app.post('/api/convites-pendentes', (req, res) => {
+    const { loggedUser } = req.body;
+    if (!loggedUser) {
+        return res.status(400).json({ error: 'Usuário não autenticado.' });
+    }
+    const pendingList = pendingFriendRequests.get(loggedUser) || [];
+    const invites = pendingList.map(email => {
+        const user = users.get(email);
+        return {
+            email: email,
+            nome: user ? user.nome : email
+        };
+    });
+    res.status(200).json({ invites: invites });
+});
+
+app.post('/api/aceitar-amizade', (req, res) => {
+    const { loggedUser, inviterEmail } = req.body;
+    if (!loggedUser || !inviterEmail) {
+        return res.status(400).json({ error: 'Dados incompletos' });
+    }
+    let pendingList = pendingFriendRequests.get(loggedUser) || [];
+    pendingList = pendingList.filter(email => email !== inviterEmail);
+    pendingFriendRequests.set(loggedUser, pendingList);
+
+    if (!friendships.has(loggedUser)) friendships.set(loggedUser, new Set());
+    if (!friendships.has(inviterEmail)) friendships.set(inviterEmail, new Set());
+
+    friendships.get(loggedUser).add(inviterEmail);
+    friendships.get(inviterEmail).add(loggedUser);
+
+    res.status(200).json({ message: 'Amizade confirmada com sucesso!' });
+});
+
+app.post('/api/meus-amigos', (req, res) => {
+    const { loggedUser } = req.body;
+    if (!loggedUser) {
+        return res.status(400).json({ error: 'Usuário não autenticado.' });
+    }
+    const friendEmails = Array.from(friendships.get(loggedUser) || []);
+    const friends = friendEmails.map(email => {
+        const user = users.get(email);
+        return {
+            email: email,
+            nome: user ? user.nome : email
+        };
+    });
+    res.status(200).json({ friends: friends });
+});
+
+app.post('/api/remover-amigo', (req, res) => {
+    const { loggedUser, friendEmail } = req.body;
+    if (!loggedUser || !friendEmail) {
+        return res.status(400).json({ error: 'Dados incompletos.' });
+    }
+    if (friendships.has(loggedUser)) {
+        const friends = friendships.get(loggedUser);
+        friends.delete(friendEmail);
+    }
+    if (friendships.has(friendEmail)) {
+        const friends = friendships.get(friendEmail);
+        friends.delete(loggedUser);
+    }
+    res.status(200).json({ message: 'Amigo removido com sucesso.' });
+});
 
 // =============
 // SISTEMA DE NOTÍCIAS
 // =============
 
-let newsToDelete = null;
+app.get('/api/noticias', (req, res) => {
+    const sortedNews = [...news].sort((a, b) => b.id - a.id);
+    res.status(200).json({ noticias: sortedNews });
+});
 
-function createNews(e) {
-    e.preventDefault();
-    const fileInput = document.getElementById('newsImageFile');
-    const title = document.getElementById('newsTitle').value.trim();
-    const description = document.getElementById('newsDescription').value.trim();
-
-    if (!fileInput.files[0] || !title || !description) {
-        alert('❌ Preencha todos os campos!');
-        return;
+app.post('/api/noticias', (req, res) => {
+    const { title, description, image, loggedUser } = req.body;
+    const admins = ['eduardomarangoni36@gmail.com', 'nukseditionofc@gmail.com'];
+    if (!admins.includes(loggedUser)) {
+        return res.status(403).json({ error: 'Acesso negado. Apenas administradores podem publicar.' });
     }
-
-    const file = fileInput.files[0];
-    const reader = new FileReader();
-
-    reader.onload = function(e) {
-        const imageUrl = e.target.result;
-        const loggedUser = localStorage.getItem('loggedUser');
-
-        fetch('https://nuksedition.onrender.com/api/noticias', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                title: title,
-                description: description,
-                image: imageUrl,
-                loggedUser: loggedUser
-            })
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`Erro HTTP: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            if (data.message) {
-                alert('✅ Notícia publicada com sucesso!');
-                document.getElementById('newsForm').reset();
-                loadNews();
-            } else {
-                alert(`❌ ${data.error}`);
-            }
-        })
-        .catch(error => {
-            console.error('Erro ao publicar notícia:', error);
-            alert('❌ Erro ao publicar notícia. Verifique o tamanho da imagem ou sua conexão.');
-        });
+    if (!title || !description || !image) {
+        return res.status(400).json({ error: 'Todos os campos são obrigatórios.' });
+    }
+    const novaNoticia = {
+        id: Date.now().toString(),
+        title,
+        description,
+        image,
+        date: new Date().toLocaleDateString('pt-BR'),
+        author: loggedUser
     };
+    news.push(novaNoticia);
+    res.status(201).json({ message: 'Notícia publicada com sucesso!', noticia: novaNoticia });
+});
 
-    reader.onerror = function() {
-        alert('❌ Erro ao ler a imagem. Tente outra imagem.');
-    };
+app.delete('/api/noticias/:id', (req, res) => {
+    const { id } = req.params;
+    const { loggedUser } = req.body;
+    const admins = ['eduardomarangoni36@gmail.com', 'nukseditionofc@gmail.com'];
+    if (!admins.includes(loggedUser)) {
+        return res.status(403).json({ error: 'Acesso negado. Apenas administradores podem excluir.' });
+    }
+    const tamanhoAnterior = news.length;
+    news = news.filter(n => n.id !== id);
+    if (news.length === tamanhoAnterior) {
+        return res.status(404).json({ error: 'Notícia não encontrada.' });
+    }
+    res.status(200).json({ message: 'Notícia excluída com sucesso!' });
+});
 
-    reader.readAsDataURL(file);
-}
-
-function loadNews() {
-    fetch('https://nuksedition.onrender.com/api/noticias')
-    .then(response => response.json())
-    .then(data => {
-        const loggedUser = localStorage.getItem('loggedUser');
-        const admins = ['eduardomarangoni36@gmail.com', 'nukseditionofc@gmail.com'];
-        const isAdmin = admins.includes(loggedUser);
-
-        const newsList = data.noticias || [];
-        const container = document.getElementById('newsList');
-
-        if (newsList.length === 0) {
-            container.innerHTML = '<p>Nenhuma notícia publicada ainda.</p>';
-            return;
-        }
-
-        let html = '';
-        newsList.forEach(news => {
-            html += `
-                <div class="news-item">
-                    <img src="${news.image}" alt="${news.title}" style="width:100%; max-height:300px; object-fit:cover; border-radius:10px; margin-bottom:20px;">
-                    <h3>${news.title}</h3>
-                    <p>${news.description}</p>
-                    <p class="date">Publicado em: ${news.date}</p>
-            `;
-
-            if (isAdmin) {
-                html += `<button class="delete-btn" onclick="deleteNews('${news.id}')">Excluir</button>`;
-            }
-
-            html += `</div>`;
-        });
-
-        container.innerHTML = html;
-    })
-    .catch(error => {
-        console.error('Erro ao carregar notícias:', error);
-        document.getElementById('newsList').innerHTML = '<p>❌ Erro ao carregar notícias.</p>';
-    });
-}
-
-function deleteNews(newsId) {
-    newsToDelete = newsId;
-    document.getElementById('confirmDeleteModal').style.display = 'flex';
-}
-
-function confirmDeleteNews() {
-    if (!newsToDelete) return;
-
-    const loggedUser = localStorage.getItem('loggedUser');
-
-    fetch(`https://nuksedition.onrender.com/api/noticias/${newsToDelete}`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ loggedUser: loggedUser })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.message) {
-            alert('✅ Notícia excluída com sucesso!');
-            newsToDelete = null;
-            document.getElementById('confirmDeleteModal').style.display = 'none';
-            loadNews();
-        } else {
-            alert(`❌ ${data.error}`);
-        }
-    })
-    .catch(error => {
-        console.error('Erro ao excluir notícia:', error);
-        alert('❌ Erro de conexão.');
-    });
-}
 // =============
 // EXCLUSÃO DE CONTA
 // =============
 
-let deleteCode = null;
-
-async function sendVerificationCode(email) {
-    deleteCode = Math.floor(1000 + Math.random() * 9000).toString();
-
-    try {
-        const response = await fetch(`${API_URL}/api/enviar-codigo-exclusao`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, codigo: deleteCode })
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            document.getElementById('codeModal').style.display = 'flex';
-            document.getElementById('verificationCode').value = '';
-        } else {
-            alert(`❌ ${data.error}`);
-        }
-    } catch (error) {
-        console.error('Erro ao enviar código:', error);
-        alert('❌ Erro de conexão. Verifique sua internet.');
+app.post('/api/enviar-codigo-exclusao', async (req, res) => {
+    const { email, codigo } = req.body;
+    if (!email || !codigo) {
+        return res.status(400).json({ error: 'Dados incompletos' });
     }
-}
-
-async function deleteAccount(email) {
-    try {
-        const response = await fetch(`${API_URL}/api/excluir-conta`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email })
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            alert('✅ Sua conta foi excluída com sucesso!');
-            localStorage.removeItem('loggedUser');
-            localStorage.removeItem('nomeUsuario');
-            deleteCode = null;
-            document.getElementById('codeModal').style.display = 'none';
-            window.location.href = 'login.html';
-        } else {
-            alert(`❌ ${data.error}`);
-        }
-    } catch (error) {
-        console.error('Erro ao excluir conta:', error);
-        alert('❌ Erro de conexão. Tente novamente.');
+    if (!users.has(email)) {
+        return res.status(400).json({ error: 'Usuário não encontrado.' });
     }
-}
+    try {
+        await transporter.sendMail({
+            from: '"NuksEdition Bot" <nukseditionofc@gmail.com>',
+            to: email,
+            subject: 'Código de Exclusão de Conta - NuksEdition',
+            text: `Olá!
+Você solicitou a exclusão da sua conta.
+Seu código de confirmação é: ${codigo}
+Se você não solicitou isso, ignore este e-mail.
+Atenciosamente,
+Equipe NuksEdition`
+        });
+        deleteCodes.set(email, codigo);
+        res.status(200).json({ message: 'Código de exclusão enviado com sucesso para seu e-mail!' });
+    } catch (error) {
+        console.error('Erro ao enviar código de exclusão:', error.message);
+        res.status(500).json({ error: 'Erro ao enviar e-mail. Verifique a senha de app do Gmail.' });
+    }
+});
+
+app.post('/api/excluir-conta', (req, res) => {
+    const { email } = req.body;
+    if (!email) {
+        return res.status(400).json({ error: 'E-mail não fornecido.' });
+    }
+    if (!users.has(email)) {
+        return res.status(404).json({ error: 'Conta não encontrada.' });
+    }
+    users.delete(email);
+    friendships.delete(email);
+    pendingFriendRequests.delete(email);
+    res.status(200).json({ message: 'Conta excluída com sucesso.' });
+});
 
 // =============
 // SISTEMA DE CHAT
 // =============
 
-async function loadMessages() {
-    const loggedUser = localStorage.getItem('loggedUser');
-    const urlParams = new URLSearchParams(window.location.search);
-    const currentFriend = urlParams.get('friend');
-
-    if (!loggedUser || !currentFriend) return;
-
-    try {
-        const response = await fetch(`${API_URL}/api/carregar-mensagens`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ loggedUser, friendEmail: currentFriend })
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            const container = document.getElementById('chatMessages');
-            container.innerHTML = '';
-
-            if (data.messages.length === 0) {
-                container.innerHTML = '<p>Nenhuma mensagem ainda. Seja o primeiro a enviar!</p>';
-                return;
-            }
-
-            data.messages.forEach(msg => {
-                const messageDiv = document.createElement('div');
-                messageDiv.className = 'message ' + (msg.sender === loggedUser ? 'sent' : 'received');
-                const time = new Date(msg.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-                messageDiv.innerHTML = `
-                    <div>${msg.text}</div>
-                    <div style="font-size: 0.8rem; color: #666; text-align: ${msg.sender === loggedUser ? 'right' : 'left'};">${time}</div>
-                `;
-                container.appendChild(messageDiv);
-            });
-
-            container.scrollTop = container.scrollHeight;
-        }
-    } catch (error) {
-        console.error('Erro ao carregar mensagens:', error);
+app.post('/api/obter-usuario', (req, res) => {
+    const { email } = req.body;
+    if (!email) {
+        return res.status(400).json({ error: 'E-mail não fornecido.' });
     }
-}
-
-async function sendMessage() {
-    const loggedUser = localStorage.getItem('loggedUser');
-    const urlParams = new URLSearchParams(window.location.search);
-    const currentFriend = urlParams.get('friend');
-
-    const input = document.getElementById('messageInput');
-    const text = input.value.trim();
-    if (!text || !loggedUser || !currentFriend) return;
-
-    try {
-        const response = await fetch(`${API_URL}/api/enviar-mensagem`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                sender: loggedUser,
-                receiver: currentFriend,
-                text: text
-            })
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            input.value = '';
-            loadMessages();
-        } else {
-            alert(`❌ ${data.error}`);
-        }
-    } catch (error) {
-        console.error('Erro ao enviar mensagem:', error);
-        alert('❌ Erro de conexão. Verifique sua internet.');
+    const user = users.get(email);
+    if (!user) {
+        return res.status(404).json({ error: 'Usuário não encontrado.' });
     }
-}
+    res.status(200).json({ nome: user.nome });
+});
 
+app.post('/api/enviar-mensagem', (req, res) => {
+    const { sender, receiver, text } = req.body;
+    if (!sender || !receiver || !text) {
+        return res.status(400).json({ error: 'Dados incompletos.' });
+    }
+    if (!users.has(sender) || !users.has(receiver)) {
+        return res.status(400).json({ error: 'Remetente ou destinatário não existe.' });
+    }
+    const chatKey = [sender, receiver].sort().join('_');
+    if (!global.chats) global.chats = {};
+    if (!global.chats[chatKey]) global.chats[chatKey] = [];
+    global.chats[chatKey].push({
+        sender: sender,
+        text: text,
+        timestamp: Date.now()
+    });
+    res.status(200).json({ message: 'Mensagem enviada com sucesso.' });
+});
 
+app.post('/api/carregar-mensagens', (req, res) => {
+    const { loggedUser, friendEmail } = req.body;
+    if (!loggedUser || !friendEmail) {
+        return res.status(400).json({ error: 'Dados incompletos.' });
+    }
+    const chatKey = [loggedUser, friendEmail].sort().join('_');
+    if (!global.chats) global.chats = {};
+    const messages = global.chats[chatKey] || [];
+    res.status(200).json({ messages: messages });
+});
 
-
-
-
+app.listen(PORT, () => {
+    console.log(`🚀 Servidor NuksEdition rodando em http://localhost:${PORT}`);
+    console.log(`✉️  Bot de e-mail ativo — pronto para enviar códigos reais!`);
+    console.log(`🔐 Para usar o Gmail, configure a variável de ambiente: GMAIL_APP_PASSWORD`);
+});
