@@ -17,21 +17,21 @@ app.use((req, res, next) => {
     next();
 });
 
-// ✅ SERVE ARQUIVOS ESTÁTICOS (CSS, JS, IMAGENS, HTML)
-app.use(express.static('public'));
+// ✅ SERVE ARQUIVOS ESTÁTICOS (CSS, JS, IMAGENS, HTML) — DEVE VIR ANTES DE QUALQUER OUTRA ROTA!
+app.use(express.static(path.join(__dirname, 'public')));
 
 // ✅ CORRIGE URLs COM BARRA NO FINAL (ex: /cadastro.html/ → /cadastro.html)
-app.get('/*.html/', (req, res) => {
+app.get('*.html/', (req, res) => {
     const url = req.originalUrl.slice(0, -1); // Remove a barra no final
     res.redirect(301, url);
 });
 
-app.get('/*.css/', (req, res) => {
+app.get('*.css/', (req, res) => {
     const url = req.originalUrl.slice(0, -1); // Remove a barra no final
     res.redirect(301, url);
 });
 
-app.get('/*.js/', (req, res) => {
+app.get('*.js/', (req, res) => {
     const url = req.originalUrl.slice(0, -1); // Remove a barra no final
     res.redirect(301, url);
 });
