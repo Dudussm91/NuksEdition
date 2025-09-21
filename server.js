@@ -37,7 +37,8 @@ function saveDatabase() {
         users: Array.from(users.entries()).map(([email, userData]) => ({
             email,
             nome: userData.nome,
-            senha: userData.senha
+            senha: userData.senha,
+            createdAt: userData.createdAt // ✅ Salva a data de criação
         })),
         pendingCodes: Array.from(pendingCodes.entries()).map(([email, data]) => ({
             email,
@@ -79,7 +80,11 @@ function loadDatabase() {
         // Recarrega 'users'
         users.clear();
         data.users.forEach(user => {
-            users.set(user.email, { nome: user.nome, senha: user.senha });
+            users.set(user.email, { 
+                nome: user.nome, 
+                senha: user.senha,
+                createdAt: user.createdAt // ✅ Carrega a data de criação
+            });
         });
 
         // Recarrega 'pendingCodes'
@@ -126,6 +131,11 @@ function loadDatabase() {
 
 // ✅ Carrega o banco de dados assim que o servidor inicia
 loadDatabase();
+
+// ✅ Garante que o arquivo database.json exista após um deploy limpo
+if (!fs.existsSync('database.json')) {
+    saveDatabase(); // Cria um arquivo vazio na primeira inicialização
+}
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'login.html'));
@@ -179,7 +189,11 @@ app.post('/api/confirmar-codigo', (req, res) => {
     if (pending.codigo !== codigo) {
         return res.status(400).json({ error: 'Código incorreto.' });
     }
-    users.set(email, { nome: pending.nome, senha: pending.senha });
+    users.set(email, { 
+        nome: pending.nome, 
+        senha: pending.senha,
+        createdAt: new Date().toISOString() // ✅ Define a data de criação aqui
+    });
     friendships.set(email, new Set());
     pendingFriendRequests.set(email, []);
     pendingCodes.delete(email);
@@ -204,7 +218,8 @@ app.post('/api/login', (req, res) => {
     }
     res.status(200).json({
         message: 'Login bem-sucedido!',
-        nome: user.nome
+        nome: user.nome,
+        createdAt: user.createdAt // ✅ Opcional: envia a data para o frontend
     });
 });
 
