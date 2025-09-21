@@ -5,6 +5,8 @@
 /noticias         /noticias.html         200
 /configuracoes    /configuracoes.html    200
 /explorar         /explorar.html         200
+/cadastro         /cadastro.html         200
+/confirmar        /confirmar.html        200
 
 # Redirecionamento padrão
 /                 /login.html            302
