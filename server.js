@@ -2,7 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const nodemailer = require('nodemailer');
 const path = require('path');
-const fs = require('fs'); // ✅ Adicionado para salvar/carregar o banco
 
 const app = express();
 const PORT = process.env.PORT || 10000;
@@ -18,114 +17,15 @@ app.use((req, res, next) => {
     next();
 });
 
+// ✅ SERVE ARQUIVOS ESTÁTICOS (CSS, JS, IMAGENS, HTML) — NÃO MEXA AQUI!
 app.use(express.static('public'));
 
-// Estruturas de dados em memória
 const users = new Map();
 const pendingCodes = new Map();
 const pendingFriendRequests = new Map();
 const friendships = new Map();
 let news = [];
 const deleteCodes = new Map();
-
-// ✅ Estrutura para mensagens de chat
-if (!global.chats) global.chats = {};
-
-// ✅ Função para salvar o banco de dados em um arquivo
-function saveDatabase() {
-    const data = {
-        users: Array.from(users.entries()).map(([email, userData]) => ({
-            email,
-            nome: userData.nome,
-            senha: userData.senha
-        })),
-        pendingCodes: Array.from(pendingCodes.entries()).map(([email, data]) => ({
-            email,
-            codigo: data.codigo,
-            nome: data.nome,
-            senha: data.senha,
-            timestamp: data.timestamp
-        })),
-        pendingFriendRequests: Array.from(pendingFriendRequests.entries()).map(([email, requests]) => ({
-            email,
-            requests: requests
-        })),
-        friendships: Array.from(friendships.entries()).map(([email, friendsSet]) => ({
-            email,
-            friends: Array.from(friendsSet)
-        })),
-        news: news,
-        deleteCodes: Array.from(deleteCodes.entries()).map(([email, codigo]) => ({
-            email,
-            codigo
-        })),
-        chats: global.chats // ✅ Salva as mensagens de chat
-    };
-    fs.writeFileSync('database.json', JSON.stringify(data, null, 2), 'utf8');
-    console.log('✅ Banco de dados salvo em database.json');
-}
-
-// ✅ Função para carregar o banco de dados do arquivo
-function loadDatabase() {
-    try {
-        if (!fs.existsSync('database.json')) {
-            console.log('ℹ️  Nenhum arquivo database.json encontrado. Iniciando com banco de dados vazio.');
-            return;
-        }
-
-        const rawData = fs.readFileSync('database.json', 'utf8');
-        const data = JSON.parse(rawData);
-
-        // Recarrega 'users'
-        users.clear();
-        data.users.forEach(user => {
-            users.set(user.email, { nome: user.nome, senha: user.senha });
-        });
-
-        // Recarrega 'pendingCodes'
-        pendingCodes.clear();
-        data.pendingCodes.forEach(item => {
-            pendingCodes.set(item.email, {
-                codigo: item.codigo,
-                nome: item.nome,
-                senha: item.senha,
-                timestamp: item.timestamp
-            });
-        });
-
-        // Recarrega 'pendingFriendRequests'
-        pendingFriendRequests.clear();
-        data.pendingFriendRequests.forEach(item => {
-            pendingFriendRequests.set(item.email, item.requests);
-        });
-
-        // Recarrega 'friendships'
-        friendships.clear();
-        data.friendships.forEach(item => {
-            friendships.set(item.email, new Set(item.friends));
-        });
-
-        // Recarrega 'news'
-        news = data.news || [];
-
-        // Recarrega 'deleteCodes'
-        deleteCodes.clear();
-        data.deleteCodes.forEach(item => {
-            deleteCodes.set(item.email, item.codigo);
-        });
-
-        // Recarrega 'chats'
-        global.chats = data.chats || {};
-
-        console.log('✅ Banco de dados carregado com sucesso de database.json');
-    } catch (error) {
-        console.error('❌ Erro ao carregar o banco de dados:', error.message);
-        console.log('⚠️  Iniciando com banco de dados vazio.');
-    }
-}
-
-// ✅ Carrega o banco de dados assim que o servidor inicia
-loadDatabase();
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'login.html'));
@@ -159,7 +59,6 @@ Atenciosamente,
 Equipe NuksEdition`
         });
         pendingCodes.set(email, { codigo, nome, senha, timestamp: Date.now() });
-        saveDatabase(); // ✅ Salva após alteração
         res.status(200).json({ message: 'Código enviado com sucesso para seu e-mail!' });
     } catch (error) {
         console.error('Erro ao enviar e-mail:', error.message);
@@ -183,7 +82,6 @@ app.post('/api/confirmar-codigo', (req, res) => {
     friendships.set(email, new Set());
     pendingFriendRequests.set(email, []);
     pendingCodes.delete(email);
-    saveDatabase(); // ✅ Salva após alteração
     res.status(200).json({
         message: 'Código confirmado!',
         nome: pending.nome
@@ -228,7 +126,6 @@ app.post('/api/adicionar-amigo', (req, res) => {
     }
     pendingList.push(loggedUser);
     pendingFriendRequests.set(friendEmail, pendingList);
-    saveDatabase(); // ✅ Salva após alteração
     res.status(200).json({ message: 'Convite de amizade enviado com sucesso!' });
 });
 
@@ -263,7 +160,6 @@ app.post('/api/aceitar-amizade', (req, res) => {
     friendships.get(loggedUser).add(inviterEmail);
     friendships.get(inviterEmail).add(loggedUser);
 
-    saveDatabase(); // ✅ Salva após alteração
     res.status(200).json({ message: 'Amizade confirmada com sucesso!' });
 });
 
@@ -296,7 +192,6 @@ app.post('/api/remover-amigo', (req, res) => {
         const friends = friendships.get(friendEmail);
         friends.delete(loggedUser);
     }
-    saveDatabase(); // ✅ Salva após alteração
     res.status(200).json({ message: 'Amigo removido com sucesso.' });
 });
 
@@ -327,7 +222,6 @@ app.post('/api/noticias', (req, res) => {
         author: loggedUser
     };
     news.push(novaNoticia);
-    saveDatabase(); // ✅ Salva após alteração
     res.status(201).json({ message: 'Notícia publicada com sucesso!', noticia: novaNoticia });
 });
 
@@ -343,7 +237,6 @@ app.delete('/api/noticias/:id', (req, res) => {
     if (news.length === tamanhoAnterior) {
         return res.status(404).json({ error: 'Notícia não encontrada.' });
     }
-    saveDatabase(); // ✅ Salva após alteração
     res.status(200).json({ message: 'Notícia excluída com sucesso!' });
 });
 
@@ -372,7 +265,6 @@ Atenciosamente,
 Equipe NuksEdition`
         });
         deleteCodes.set(email, codigo);
-        saveDatabase(); // ✅ Salva após alteração
         res.status(200).json({ message: 'Código de exclusão enviado com sucesso para seu e-mail!' });
     } catch (error) {
         console.error('Erro ao enviar código de exclusão:', error.message);
@@ -391,7 +283,6 @@ app.post('/api/excluir-conta', (req, res) => {
     users.delete(email);
     friendships.delete(email);
     pendingFriendRequests.delete(email);
-    saveDatabase(); // ✅ Salva após alteração
     res.status(200).json({ message: 'Conta excluída com sucesso.' });
 });
 
@@ -427,7 +318,6 @@ app.post('/api/enviar-mensagem', (req, res) => {
         text: text,
         timestamp: Date.now()
     });
-    saveDatabase(); // ✅ Salva após alteração
     res.status(200).json({ message: 'Mensagem enviada com sucesso.' });
 });
 
