@@ -17,7 +17,7 @@ app.use((req, res, next) => {
     next();
 });
 
-// ✅ SERVE ARQUIVOS ESTÁTICOS
+// ✅ SERVE ARQUIVOS ESTÁTICOS (CSS, IMAGENS, HTML)
 app.use(express.static('public'));
 
 // ✅ LISTA DE PÁGINAS QUE EXIGEM LOGIN
@@ -33,66 +33,13 @@ const paginasProtegidas = [
 // ✅ INTERCEPTA REQUISIÇÕES PARA PÁGINAS PROTEGIDAS
 paginasProtegidas.forEach(pagina => {
     app.get(`/${pagina}`, (req, res) => {
-        // Verifica se o usuário está logado via localStorage (simulado via header)
+        // Verifica se o usuário está logado via header (enviado pelo script.js)
         const loggedUser = req.headers['x-logged-user'];
         const userExists = loggedUser && global.users && global.users.has(loggedUser);
 
         if (!userExists) {
-            // ✅ Envia a mensagem exata que você pediu
-            res.status(403).send(`
-                <!DOCTYPE html>
-                <html lang="pt-BR">
-                <head>
-                    <meta charset="UTF-8">
-                    <title>Acesso Negado</title>
-                    <style>
-                        body {
-                            font-family: Arial, sans-serif;
-                            background: #f0f2f5;
-                            display: flex;
-                            justify-content: center;
-                            align-items: center;
-                            height: 100vh;
-                            margin: 0;
-                        }
-                        .message-box {
-                            background: white;
-                            padding: 40px;
-                            border-radius: 15px;
-                            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-                            text-align: center;
-                            max-width: 400px;
-                        }
-                        .message-box h2 {
-                            color: #f44336;
-                            margin-bottom: 20px;
-                        }
-                        .btn {
-                            background: #6a5acd;
-                            color: white;
-                            padding: 12px 24px;
-                            text-decoration: none;
-                            border-radius: 8px;
-                            font-weight: bold;
-                            display: inline-block;
-                            margin-top: 20px;
-                        }
-                        .btn:hover {
-                            background: #5a4abb;
-                        }
-                    </style>
-                    <meta http-equiv="refresh" content="5;url=/login.html">
-                </head>
-                <body>
-                    <div class="message-box">
-                        <h2>🔒 Acesso Restrito</h2>
-                        <p>Você precisa se logar ou cadastrar para acessar esta página.</p>
-                        <p><em>Você será redirecionado para a página de login em 5 segundos...</em></p>
-                        <a href="/login.html" class="btn">Ir para Login Agora</a>
-                    </div>
-                </body>
-                </html>
-            `);
+            // ✅ Redireciona para login.html com uma mensagem no URL
+            return res.redirect('/login.html?error=login_required');
         } else {
             // Se estiver logado, entrega o arquivo normalmente
             res.sendFile(path.join(__dirname, 'public', pagina));
