@@ -1,1 +1,10 @@
-/ /login.html 302
+# Redirecionamentos sem .html
+/home             /home.html             200
+/amigos           /amigos.html           200
+/chat             /chat.html             200
+/noticias         /noticias.html         200
+/configuracoes    /configuracoes.html    200
+/explorar         /explorar.html         200
+
+# Redirecionamento padrão
+/                 /login.html            302
