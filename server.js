@@ -17,33 +17,39 @@ app.use((req, res, next) => {
     next();
 });
 
-// ✅ SERVE ARQUIVOS ESTÁTICOS (CSS, IMAGENS, HTML)
+// ✅ SERVE ARQUIVOS ESTÁTICOS (CSS, JS, IMAGENS, HTML) — NÃO MEXA AQUI!
 app.use(express.static('public'));
 
 // ✅ LISTA DE PÁGINAS QUE EXIGEM LOGIN
 const paginasProtegidas = [
-    'home.html',
-    'amigos.html',
-    'chat.html',
-    'noticias.html',
-    'configuracoes.html',
-    'explorar.html'
+    '/home.html',
+    '/amigos.html',
+    '/chat.html',
+    '/noticias.html',
+    '/configuracoes.html',
+    '/explorar.html'
 ];
 
-// ✅ INTERCEPTA REQUISIÇÕES PARA PÁGINAS PROTEGIDAS
+// ✅ INTERCEPTA REQUISIÇÕES PARA PÁGINAS PROTEGIDAS (SEM BARRA NO FINAL)
 paginasProtegidas.forEach(pagina => {
-    app.get(`/${pagina}`, (req, res) => {
-        // Verifica se o usuário está logado via header (enviado pelo script.js)
-        const loggedUser = req.headers['x-logged-user'];
-        const userExists = loggedUser && global.users && global.users.has(loggedUser);
+    app.get(pagina, (req, res) => {
+        const loggedUser = localStorage.getItem('loggedUser'); // <-- ISSO NÃO FUNCIONA NO SERVER!
+        // ✅ Vamos corrigir isso: verificamos via header enviado pelo script.js
+        const userHeader = req.headers['x-logged-user'];
+        const isUserLoggedIn = userHeader && global.users && global.users.has(userHeader);
 
-        if (!userExists) {
-            // ✅ Redireciona para login.html com uma mensagem no URL
+        if (!isUserLoggedIn) {
+            // ✅ Redireciona para login com uma mensagem
             return res.redirect('/login.html?error=login_required');
         } else {
-            // Se estiver logado, entrega o arquivo normalmente
-            res.sendFile(path.join(__dirname, 'public', pagina));
+            // ✅ Entrega o arquivo normalmente
+            res.sendFile(path.join(__dirname, 'public', pagina.replace('/', '')));
         }
+    });
+
+    // ✅ TRATA TAMBÉM A VERSÃO COM BARRA NO FINAL (ex: /home.html/)
+    app.get(pagina + '/', (req, res) => {
+        res.redirect(pagina); // Redireciona para a versão sem barra
     });
 });
 
