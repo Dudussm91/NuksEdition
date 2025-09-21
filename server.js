@@ -2,7 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const nodemailer = require('nodemailer');
 const path = require('path');
-const fs = require('fs'); // ✅ Adicionado para salvar/carregar o banco
 
 const app = express();
 const PORT = process.env.PORT || 10000;
@@ -18,147 +17,33 @@ app.use((req, res, next) => {
     next();
 });
 
-// ✅ Serve arquivos públicos SEM verificação (login, cadastro, confirmar, CSS, JS, imagens)
-app.use('/login.html', express.static('public'));
-app.use('/cadastro.html', express.static('public'));
-app.use('/confirmar.html', express.static('public'));
-app.use('/style.css', express.static('public'));
-app.use('/script.js', express.static('public'));
-app.use('/images', express.static('public'));
+// ✅ SERVE ARQUIVOS ESTÁTICOS
+app.use(express.static('public'));
 
-// Estruturas de dados em memória
-const users = new Map();
-const pendingCodes = new Map();
-const pendingFriendRequests = new Map();
-const friendships = new Map();
-let news = [];
-const deleteCodes = new Map();
+// ✅ LISTA DE PÁGINAS QUE EXIGEM LOGIN
+const paginasProtegidas = [
+    'home.html',
+    'amigos.html',
+    'chat.html',
+    'noticias.html',
+    'configuracoes.html',
+    'explorar.html'
+];
 
-// ✅ Estrutura para mensagens de chat
-if (!global.chats) global.chats = {};
-
-// ✅ Função para salvar o banco de dados em um arquivo
-function saveDatabase() {
-    const data = {
-        users: Array.from(users.entries()).map(([email, userData]) => ({
-            email,
-            nome: userData.nome,
-            senha: userData.senha,
-            createdAt: userData.createdAt // ✅ Salva a data de criação
-        })),
-        pendingCodes: Array.from(pendingCodes.entries()).map(([email, data]) => ({
-            email,
-            codigo: data.codigo,
-            nome: data.nome,
-            senha: data.senha,
-            timestamp: data.timestamp
-        })),
-        pendingFriendRequests: Array.from(pendingFriendRequests.entries()).map(([email, requests]) => ({
-            email,
-            requests: requests
-        })),
-        friendships: Array.from(friendships.entries()).map(([email, friendsSet]) => ({
-            email,
-            friends: Array.from(friendsSet)
-        })),
-        news: news,
-        deleteCodes: Array.from(deleteCodes.entries()).map(([email, codigo]) => ({
-            email,
-            codigo
-        })),
-        chats: global.chats // ✅ Salva as mensagens de chat
-    };
-    fs.writeFileSync('database.json', JSON.stringify(data, null, 2), 'utf8');
-    console.log('✅ Banco de dados salvo em database.json');
-}
-
-// ✅ Função para carregar o banco de dados do arquivo
-function loadDatabase() {
-    try {
-        if (!fs.existsSync('database.json')) {
-            console.log('ℹ️  Nenhum arquivo database.json encontrado. Iniciando com banco de dados vazio.');
-            return;
-        }
-
-        const rawData = fs.readFileSync('database.json', 'utf8');
-        const data = JSON.parse(rawData);
-
-        // Recarrega 'users'
-        users.clear();
-        data.users.forEach(user => {
-            users.set(user.email, { 
-                nome: user.nome, 
-                senha: user.senha,
-                createdAt: user.createdAt // ✅ Carrega a data de criação
-            });
-        });
-
-        // Recarrega 'pendingCodes'
-        pendingCodes.clear();
-        data.pendingCodes.forEach(item => {
-            pendingCodes.set(item.email, {
-                codigo: item.codigo,
-                nome: item.nome,
-                senha: item.senha,
-                timestamp: item.timestamp
-            });
-        });
-
-        // Recarrega 'pendingFriendRequests'
-        pendingFriendRequests.clear();
-        data.pendingFriendRequests.forEach(item => {
-            pendingFriendRequests.set(item.email, item.requests);
-        });
-
-        // Recarrega 'friendships'
-        friendships.clear();
-        data.friendships.forEach(item => {
-            friendships.set(item.email, new Set(item.friends));
-        });
-
-        // Recarrega 'news'
-        news = data.news || [];
-
-        // Recarrega 'deleteCodes'
-        deleteCodes.clear();
-        data.deleteCodes.forEach(item => {
-            deleteCodes.set(item.email, item.codigo);
-        });
-
-        // Recarrega 'chats'
-        global.chats = data.chats || {};
-
-        console.log('✅ Banco de dados carregado com sucesso de database.json');
-    } catch (error) {
-        console.error('❌ Erro ao carregar o banco de dados:', error.message);
-        console.log('⚠️  Iniciando com banco de dados vazio.');
-    }
-}
-
-// ✅ Carrega o banco de dados assim que o servidor inicia
-loadDatabase();
-
-// ✅ Garante que o arquivo database.json exista após um deploy limpo
-if (!fs.existsSync('database.json')) {
-    saveDatabase(); // Cria um arquivo vazio na primeira inicialização
-}
-
-// ✅ Rotas protegidas — exigem login
-const paginasProtegidas = ['home.html', 'amigos.html', 'chat.html', 'noticias.html', 'configuracoes.html', 'explorar.html'];
+// ✅ INTERCEPTA REQUISIÇÕES PARA PÁGINAS PROTEGIDAS
 paginasProtegidas.forEach(pagina => {
     app.get(`/${pagina}`, (req, res) => {
-        // Verifica se o usuário está logado via header
-        const loggedUserEmail = req.headers['x-logged-user'];
-        const isUserLoggedIn = loggedUserEmail && users.has(loggedUserEmail);
+        // Verifica se o usuário está logado via localStorage (simulado via header)
+        const loggedUser = req.headers['x-logged-user'];
+        const userExists = loggedUser && global.users && global.users.has(loggedUser);
 
-        if (!isUserLoggedIn) {
-            // ✅ Envia uma página HTML com a mensagem solicitada
+        if (!userExists) {
+            // ✅ Envia a mensagem exata que você pediu
             res.status(403).send(`
                 <!DOCTYPE html>
                 <html lang="pt-BR">
                 <head>
                     <meta charset="UTF-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
                     <title>Acesso Negado</title>
                     <style>
                         body {
@@ -182,10 +67,6 @@ paginasProtegidas.forEach(pagina => {
                             color: #f44336;
                             margin-bottom: 20px;
                         }
-                        .message-box p {
-                            font-size: 1.1rem;
-                            margin-bottom: 30px;
-                        }
                         .btn {
                             background: #6a5acd;
                             color: white;
@@ -193,12 +74,13 @@ paginasProtegidas.forEach(pagina => {
                             text-decoration: none;
                             border-radius: 8px;
                             font-weight: bold;
+                            display: inline-block;
+                            margin-top: 20px;
                         }
                         .btn:hover {
                             background: #5a4abb;
                         }
                     </style>
-                    <!-- Redireciona automaticamente para login após 5 segundos -->
                     <meta http-equiv="refresh" content="5;url=/login.html">
                 </head>
                 <body>
@@ -217,6 +99,17 @@ paginasProtegidas.forEach(pagina => {
         }
     });
 });
+
+// Estruturas de dados em memória
+const users = new Map();
+const pendingCodes = new Map();
+const pendingFriendRequests = new Map();
+const friendships = new Map();
+let news = [];
+const deleteCodes = new Map();
+
+// ✅ Torna 'users' global para ser acessado nas rotas protegidas
+global.users = users;
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'login.html'));
@@ -250,7 +143,6 @@ Atenciosamente,
 Equipe NuksEdition`
         });
         pendingCodes.set(email, { codigo, nome, senha, timestamp: Date.now() });
-        saveDatabase(); // ✅ Salva após alteração
         res.status(200).json({ message: 'Código enviado com sucesso para seu e-mail!' });
     } catch (error) {
         console.error('Erro ao enviar e-mail:', error.message);
@@ -270,15 +162,10 @@ app.post('/api/confirmar-codigo', (req, res) => {
     if (pending.codigo !== codigo) {
         return res.status(400).json({ error: 'Código incorreto.' });
     }
-    users.set(email, { 
-        nome: pending.nome, 
-        senha: pending.senha,
-        createdAt: new Date().toISOString() // ✅ Define a data de criação aqui
-    });
+    users.set(email, { nome: pending.nome, senha: pending.senha });
     friendships.set(email, new Set());
     pendingFriendRequests.set(email, []);
     pendingCodes.delete(email);
-    saveDatabase(); // ✅ Salva após alteração
     res.status(200).json({
         message: 'Código confirmado!',
         nome: pending.nome
@@ -299,8 +186,7 @@ app.post('/api/login', (req, res) => {
     }
     res.status(200).json({
         message: 'Login bem-sucedido!',
-        nome: user.nome,
-        createdAt: user.createdAt // ✅ Opcional: envia a data para o frontend
+        nome: user.nome
     });
 });
 
@@ -324,7 +210,6 @@ app.post('/api/adicionar-amigo', (req, res) => {
     }
     pendingList.push(loggedUser);
     pendingFriendRequests.set(friendEmail, pendingList);
-    saveDatabase(); // ✅ Salva após alteração
     res.status(200).json({ message: 'Convite de amizade enviado com sucesso!' });
 });
 
@@ -359,7 +244,6 @@ app.post('/api/aceitar-amizade', (req, res) => {
     friendships.get(loggedUser).add(inviterEmail);
     friendships.get(inviterEmail).add(loggedUser);
 
-    saveDatabase(); // ✅ Salva após alteração
     res.status(200).json({ message: 'Amizade confirmada com sucesso!' });
 });
 
@@ -392,7 +276,6 @@ app.post('/api/remover-amigo', (req, res) => {
         const friends = friendships.get(friendEmail);
         friends.delete(loggedUser);
     }
-    saveDatabase(); // ✅ Salva após alteração
     res.status(200).json({ message: 'Amigo removido com sucesso.' });
 });
 
@@ -423,7 +306,6 @@ app.post('/api/noticias', (req, res) => {
         author: loggedUser
     };
     news.push(novaNoticia);
-    saveDatabase(); // ✅ Salva após alteração
     res.status(201).json({ message: 'Notícia publicada com sucesso!', noticia: novaNoticia });
 });
 
@@ -439,7 +321,6 @@ app.delete('/api/noticias/:id', (req, res) => {
     if (news.length === tamanhoAnterior) {
         return res.status(404).json({ error: 'Notícia não encontrada.' });
     }
-    saveDatabase(); // ✅ Salva após alteração
     res.status(200).json({ message: 'Notícia excluída com sucesso!' });
 });
 
@@ -468,7 +349,6 @@ Atenciosamente,
 Equipe NuksEdition`
         });
         deleteCodes.set(email, codigo);
-        saveDatabase(); // ✅ Salva após alteração
         res.status(200).json({ message: 'Código de exclusão enviado com sucesso para seu e-mail!' });
     } catch (error) {
         console.error('Erro ao enviar código de exclusão:', error.message);
@@ -487,7 +367,6 @@ app.post('/api/excluir-conta', (req, res) => {
     users.delete(email);
     friendships.delete(email);
     pendingFriendRequests.delete(email);
-    saveDatabase(); // ✅ Salva após alteração
     res.status(200).json({ message: 'Conta excluída com sucesso.' });
 });
 
@@ -523,7 +402,6 @@ app.post('/api/enviar-mensagem', (req, res) => {
         text: text,
         timestamp: Date.now()
     });
-    saveDatabase(); // ✅ Salva após alteração
     res.status(200).json({ message: 'Mensagem enviada com sucesso.' });
 });
 
