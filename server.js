@@ -17,7 +17,7 @@ app.use((req, res, next) => {
     next();
 });
 
-// ✅ SERVE ARQUIVOS ESTÁTICOS (CSS, JS, IMAGENS, HTML) — NÃO MEXA AQUI!
+// ✅ ESTA LINHA É A CHAVE: SERVE ARQUIVOS ESTÁTICOS SEM NENHUMA INTERFERÊNCIA
 app.use(express.static('public'));
 
 const users = new Map();
