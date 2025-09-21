@@ -18,7 +18,13 @@ app.use((req, res, next) => {
     next();
 });
 
-app.use(express.static('public'));
+// ✅ Serve arquivos públicos SEM verificação (login, cadastro, confirmar, CSS, JS, imagens)
+app.use('/login.html', express.static('public'));
+app.use('/cadastro.html', express.static('public'));
+app.use('/confirmar.html', express.static('public'));
+app.use('/style.css', express.static('public'));
+app.use('/script.js', express.static('public'));
+app.use('/images', express.static('public'));
 
 // Estruturas de dados em memória
 const users = new Map();
@@ -136,6 +142,81 @@ loadDatabase();
 if (!fs.existsSync('database.json')) {
     saveDatabase(); // Cria um arquivo vazio na primeira inicialização
 }
+
+// ✅ Rotas protegidas — exigem login
+const paginasProtegidas = ['home.html', 'amigos.html', 'chat.html', 'noticias.html', 'configuracoes.html', 'explorar.html'];
+paginasProtegidas.forEach(pagina => {
+    app.get(`/${pagina}`, (req, res) => {
+        // Verifica se o usuário está logado via header
+        const loggedUserEmail = req.headers['x-logged-user'];
+        const isUserLoggedIn = loggedUserEmail && users.has(loggedUserEmail);
+
+        if (!isUserLoggedIn) {
+            // ✅ Envia uma página HTML com a mensagem solicitada
+            res.status(403).send(`
+                <!DOCTYPE html>
+                <html lang="pt-BR">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Acesso Negado</title>
+                    <style>
+                        body {
+                            font-family: Arial, sans-serif;
+                            background: #f0f2f5;
+                            display: flex;
+                            justify-content: center;
+                            align-items: center;
+                            height: 100vh;
+                            margin: 0;
+                        }
+                        .message-box {
+                            background: white;
+                            padding: 40px;
+                            border-radius: 15px;
+                            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+                            text-align: center;
+                            max-width: 400px;
+                        }
+                        .message-box h2 {
+                            color: #f44336;
+                            margin-bottom: 20px;
+                        }
+                        .message-box p {
+                            font-size: 1.1rem;
+                            margin-bottom: 30px;
+                        }
+                        .btn {
+                            background: #6a5acd;
+                            color: white;
+                            padding: 12px 24px;
+                            text-decoration: none;
+                            border-radius: 8px;
+                            font-weight: bold;
+                        }
+                        .btn:hover {
+                            background: #5a4abb;
+                        }
+                    </style>
+                    <!-- Redireciona automaticamente para login após 5 segundos -->
+                    <meta http-equiv="refresh" content="5;url=/login.html">
+                </head>
+                <body>
+                    <div class="message-box">
+                        <h2>🔒 Acesso Restrito</h2>
+                        <p>Você precisa se logar ou cadastrar para acessar esta página.</p>
+                        <p><em>Você será redirecionado para a página de login em 5 segundos...</em></p>
+                        <a href="/login.html" class="btn">Ir para Login Agora</a>
+                    </div>
+                </body>
+                </html>
+            `);
+        } else {
+            // Se estiver logado, entrega o arquivo normalmente
+            res.sendFile(path.join(__dirname, 'public', pagina));
+        }
+    });
+});
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'login.html'));
