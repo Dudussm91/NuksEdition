@@ -62,7 +62,7 @@ function saveDatabase() {
         chats: global.chats // ✅ Salva as mensagens de chat
     };
     fs.writeFileSync('database.json', JSON.stringify(data, null, 2), 'utf8');
-    console.log('✅ Banco de dados salvo em database.json');
+    // console.log('✅ Banco de dados salvo em database.json'); // ✅ COMENTADO PARA NÃO IRRITAR
 }
 
 // ✅ Função para carregar o banco de dados do arquivo
