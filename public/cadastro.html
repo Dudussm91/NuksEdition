@@ -3,40 +3,104 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cadastro - NuksEdition</title>
+    <title>Confirmar Código - NuksEdition</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <header>
-        <h1>NuksEdition</h1>
+    <header class="topbar">
+        <h1>Confirmação de Cadastro</h1>
+        <nav>
+            <a href="/login" class="btn-back">← Voltar</a>
+        </nav>
     </header>
-    <div class="form-container">
+    <main class="form-container">
         <div class="form-box">
-            <h2>Cadastrar</h2>
-            <form id="cadastroForm">
-                <input type="text" id="cadastroNome" placeholder="Nome Completo" required>
-                <input type="email" id="cadastroEmail" placeholder="E-mail" required>
-                <input type="password" id="cadastroSenha" placeholder="Senha" required>
-                <input type="password" id="cadastroConfirmar" placeholder="Confirmar Senha" required>
-                <button type="submit">Cadastrar</button>
+            <h2>Confirme seu Código</h2>
+            <p id="emailHint" style="margin-bottom: 20px; color: #6a5acd; font-weight: 500;">Enviado para: <strong>carregando...</strong></p>
+            <form id="confirmForm">
+                <input type="text" id="codigoInput" placeholder="Digite o código de 4 dígitos" required maxlength="4" style="text-align: center; font-size: 1.2rem;">
+                <button type="submit">Confirmar Código</button>
             </form>
-            <div id="mensagem"></div>
-            <p class="toggle-form">
-                Já tem conta? <a href="/login">Faça login</a>
+            <p style="margin-top: 20px; font-size: 0.95rem;">
+                Não recebeu? <a href="#" onclick="reenviarCodigo(); return false;" style="color: #6a5acd; font-weight: 600; text-decoration: none;">Reenviar código</a>
             </p>
         </div>
-    </div>
+    </main>
     <script src="script.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const form = document.getElementById('cadastroForm');
-            if (form) {
-                form.addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    cadastrarUsuario();
-                });
+            const email = localStorage.getItem('pendingEmail');
+            if (!email) {
+                alert('❌ Nenhum cadastro pendente. Por favor, cadastre-se novamente.');
+                window.location.href = '/cadastro';
+                return;
             }
+            // Mostra o e-mail para o usuário
+            document.getElementById('emailHint').querySelector('strong').innerText = email;
+            // Envia o formulário
+            document.getElementById('confirmForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                confirmarCodigo(email); // Passa o e-mail diretamente
+            });
         });
+        async function confirmarCodigo(email) {
+            const codigoDigitado = document.getElementById('codigoInput').value.trim();
+            if (!codigoDigitado) {
+                alert('❌ Preencha o código de confirmação!');
+                return;
+            }
+            try {
+                const response = await fetch('/api/confirmar-codigo', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, codigo: codigoDigitado })
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    alert(`✅ ${data.message}`);
+                    // ✅ SALVA O NOME DO USUÁRIO NO LOCALSTORAGE (PARA MOSTRAR NO HOME)
+                    localStorage.setItem('loggedUser', email);
+                    localStorage.setItem('nomeUsuario', data.nome); // <-- ISSO É NOVO E IMPORTANTE!
+                    window.location.href = '/home';
+                } else {
+                    alert(`❌ ${data.error}`);
+                }
+            } catch (error) {
+                console.error('Erro de conexão:', error);
+                alert('❌ Erro de conexão. Verifique sua internet.');
+            }
+        }
+        function reenviarCodigo() {
+            const emailPendente = localStorage.getItem('pendingEmail');
+            if (!emailPendente) {
+                alert('❌ Nenhum cadastro pendente.');
+                return;
+            }
+            const novoCodigo = Math.floor(1000 + Math.random() * 9000).toString();
+            fetch('/api/cadastrar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    nome: "Usuário",
+                    email: emailPendente,
+                    senha: "senha",
+                    codigo: novoCodigo
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message) {
+                    alert(`✅ ${data.message}`);
+                } else {
+                    alert(`❌ ${data.error}`);
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao reenviar:', error);
+                alert('❌ Erro de conexão. Verifique sua internet.');
+            });
+        }
     </script>
 </body>
 </html>
+
