@@ -11,15 +11,15 @@
         <div class="user-menu">
             <span id="userName" class="user-display">Olá, Usuário!</span>
             <div class="dropdown" id="userDropdown">
-                <a href="configuracoes.html">Configurações</a>
+                <a href="/configuracoes">Configurações</a>
             </div>
         </div>
         <nav class="main-nav">
-            <a href="explorar.html">Explorar</a>
+            <a href="/explorar">Explorar</a>
             <a href="#pesquisar">Pesquisar</a>
-            <a href="amigos.html">Amigo</a>
-            <a href="noticias.html">Notícias</a>
-            <a href="login.html" class="btn-logout">Sair</a>
+            <a href="/amigos">Amigo</a>
+            <a href="/noticias">Notícias</a>
+            <a href="/login" class="btn-logout">Sair</a>
         </nav>
     </header>
     <main class="content">
@@ -29,17 +29,14 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const emailLogado = localStorage.getItem('loggedUser');
-
             if (!emailLogado) {
                 alert('❌ Você precisa estar logado para acessar esta página.');
-                window.location.href = 'login.html';
+                window.location.href = '/login';
                 return;
             }
-
             // ✅ TENTA PEGAR O NOME DO NOVO LOCALSTORAGE
             const nomeSalvo = localStorage.getItem('nomeUsuario');
             const userDisplay = document.getElementById('userName');
-
             if (nomeSalvo) {
                 userDisplay.innerText = `Olá, ${nomeSalvo}!`;
             } else {
@@ -53,13 +50,11 @@
                     userDisplay.innerText = 'Olá, Usuário!';
                 }
             }
-
             // Lógica do dropdown
             const dropdown = document.getElementById('userDropdown');
             userDisplay.addEventListener('click', function() {
                 dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
             });
-
             document.addEventListener('click', function(e) {
                 if (!userDisplay.contains(e.target) && !dropdown.contains(e.target)) {
                     dropdown.style.display = 'none';
@@ -69,4 +64,3 @@
     </script>
 </body>
 </html>
-
