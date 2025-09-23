@@ -10,7 +10,7 @@
     <header class="topbar">
         <h1>Notícias</h1>
         <nav>
-            <a href="home.html" class="btn-back">← Voltar</a>
+            <a href="/home" class="btn-back">← Voltar</a>
         </nav>
     </header>
     <main class="news-content">
@@ -46,13 +46,11 @@
             const loggedUser = localStorage.getItem('loggedUser');
             if (!loggedUser) {
                 alert('❌ Faça login para acessar as notícias.');
-                window.location.href = 'login.html';
+                window.location.href = '/login';
                 return;
             }
-
             const admins = ['eduardomarangoni36@gmail.com', 'nukseditionofc@gmail.com'];
             const isAdmin = admins.includes(loggedUser);
-
             if (isAdmin) {
                 document.getElementById('adminSection').style.display = 'block';
                 document.getElementById('newsForm').addEventListener('submit', createNews);
@@ -62,7 +60,6 @@
                     document.getElementById('confirmDeleteModal').style.display = 'none';
                 });
             }
-
             loadNews();
         });
     </script>
