@@ -44,37 +44,31 @@ async function cadastrarUsuario() {
     const email = document.getElementById('cadastroEmail').value.trim();
     const senha = document.getElementById('cadastroSenha').value.trim();
     const confirmar = document.getElementById('cadastroConfirmar').value.trim();
-
     if (!nome || !email || !senha || !confirmar) {
         alert('❌ Preencha todos os campos!');
         return;
     }
-
     if (senha.length < 6) {
         alert('❌ A senha deve ter pelo menos 6 caracteres!');
         return;
     }
-
     if (senha !== confirmar) {
         alert('❌ As senhas não coincidem!');
         return;
     }
-
     const codigo = Math.floor(1000 + Math.random() * 9000).toString();
-
-    localStorage.setItem('pendingEmail', email);
-
+    // ✅ NÃO SALVA O EMAIL NO LOCALSTORAGE AINDA
     try {
         const response = await fetch(`${API_URL}/api/cadastrar`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ nome, email, senha, codigo })
         });
-
         const data = await response.json();
-
         if (response.ok) {
             alert(`✅ ${data.message}`);
+            // ✅ SÓ SALVA O EMAIL NO LOCALSTORAGE DEPOIS DE RECEBER A RESPOSTA DO SERVIDOR
+            localStorage.setItem('pendingEmail', email);
             window.location.href = 'confirmar.html';
         } else {
             alert(`❌ ${data.error}`);
@@ -615,6 +609,7 @@ async function sendMessage() {
         alert('❌ Erro de conexão. Verifique sua internet.');
     }
 }
+
 
 
 
