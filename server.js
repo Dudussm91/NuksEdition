@@ -31,7 +31,7 @@ const rotasSemHtml = [
     'explorar',
     'cadastro',
     'confirmar',
-    'login' // ✅ ADICIONEI O LOGIN AQUI!
+    'login'
 ];
 
 // ✅ ADICIONA UMA ROTA PARA CADA PÁGINA SEM .HTML
@@ -39,6 +39,11 @@ rotasSemHtml.forEach(rota => {
     app.get(`/${rota}`, (req, res) => {
         res.sendFile(path.join(__dirname, 'public', `${rota}.html`));
     });
+});
+
+// ✅ ROTA RAIZ: Redireciona para /login
+app.get('/', (req, res) => {
+    res.redirect('/login');
 });
 
 // Estruturas de dados em memória
