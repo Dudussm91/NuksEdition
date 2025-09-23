@@ -10,7 +10,7 @@
     <header class="topbar">
         <h1>Confirmação de Cadastro</h1>
         <nav>
-            <a href="login.html" class="btn-back">← Voltar</a>
+            <a href="/login" class="btn-back">← Voltar</a>
         </nav>
     </header>
     <main class="form-container">
@@ -30,46 +30,38 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const email = localStorage.getItem('pendingEmail');
-
             if (!email) {
                 alert('❌ Nenhum cadastro pendente. Por favor, cadastre-se novamente.');
-                window.location.href = 'cadastro.html';
+                window.location.href = '/cadastro';
                 return;
             }
-
             // Mostra o e-mail para o usuário
             document.getElementById('emailHint').querySelector('strong').innerText = email;
-
             // Envia o formulário
             document.getElementById('confirmForm').addEventListener('submit', function(e) {
                 e.preventDefault();
                 confirmarCodigo(email); // Passa o e-mail diretamente
             });
         });
-
         async function confirmarCodigo(email) {
             const codigoDigitado = document.getElementById('codigoInput').value.trim();
-
             if (!codigoDigitado) {
                 alert('❌ Preencha o código de confirmação!');
                 return;
             }
-
             try {
                 const response = await fetch('/api/confirmar-codigo', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email, codigo: codigoDigitado })
                 });
-
                 const data = await response.json();
-
                 if (response.ok) {
                     alert(`✅ ${data.message}`);
                     // ✅ SALVA O NOME DO USUÁRIO NO LOCALSTORAGE (PARA MOSTRAR NO HOME)
                     localStorage.setItem('loggedUser', email);
                     localStorage.setItem('nomeUsuario', data.nome); // <-- ISSO É NOVO E IMPORTANTE!
-                    window.location.href = 'home.html';
+                    window.location.href = '/home';
                 } else {
                     alert(`❌ ${data.error}`);
                 }
@@ -78,16 +70,13 @@
                 alert('❌ Erro de conexão. Verifique sua internet.');
             }
         }
-
         function reenviarCodigo() {
             const emailPendente = localStorage.getItem('pendingEmail');
             if (!emailPendente) {
                 alert('❌ Nenhum cadastro pendente.');
                 return;
             }
-
             const novoCodigo = Math.floor(1000 + Math.random() * 9000).toString();
-
             fetch('/api/cadastrar', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -114,3 +103,4 @@
     </script>
 </body>
 </html>
+
