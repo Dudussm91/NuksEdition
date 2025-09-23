@@ -31,7 +31,7 @@ const rotasSemHtml = [
     'explorar',
     'cadastro',
     'confirmar',
-    'login'
+    'login' // ✅ ADICIONEI O LOGIN AQUI!
 ];
 
 // ✅ ADICIONA UMA ROTA PARA CADA PÁGINA SEM .HTML
