@@ -10,7 +10,7 @@
     <header class="topbar">
         <h1 id="chatTitle">Carregando...</h1>
         <nav>
-            <a href="amigos.html" class="btn-back">← Voltar</a>
+            <a href="/amigos" class="btn-back">← Voltar</a>
         </nav>
     </header>
     <div class="chat-container">
@@ -25,23 +25,20 @@
     <script>
         let currentFriend = null;
         let loggedUser = null;
-
         document.addEventListener('DOMContentLoaded', async function() {
             loggedUser = localStorage.getItem('loggedUser');
             if (!loggedUser) {
                 alert('❌ Faça login para acessar o chat.');
-                window.location.href = 'login.html';
+                window.location.href = '/login';
                 return;
             }
-
             const urlParams = new URLSearchParams(window.location.search);
             currentFriend = urlParams.get('friend');
             if (!currentFriend) {
                 alert('❌ Nenhum amigo selecionado.');
-                window.location.href = 'amigos.html';
+                window.location.href = '/amigos';
                 return;
             }
-
             // Busca o nome do amigo via backend
             try {
                 const response = await fetch('/api/obter-usuario', {
@@ -49,17 +46,14 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email: currentFriend })
                 });
-
                 const data = await response.json();
                 const friendName = data.nome || currentFriend;
                 document.getElementById('chatTitle').innerText = `Chat com ${friendName}`;
             } catch (error) {
                 document.getElementById('chatTitle').innerText = `Chat com ${currentFriend}`;
             }
-
             // Carrega mensagens do servidor
             loadMessages();
-
             // Configura botão e tecla Enter
             document.getElementById('sendButton').addEventListener('click', sendMessage);
             document.getElementById('messageInput').addEventListener('keypress', function(e) {
@@ -67,32 +61,25 @@
                     sendMessage();
                 }
             });
-
             // Atualiza mensagens a cada 3 segundos (opcional, para "tempo real")
             setInterval(loadMessages, 3000);
         });
-
         async function loadMessages() {
             if (!loggedUser || !currentFriend) return;
-
             try {
                 const response = await fetch('/api/carregar-mensagens', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ loggedUser, friendEmail: currentFriend })
                 });
-
                 const data = await response.json();
-
                 if (response.ok) {
                     const container = document.getElementById('chatMessages');
                     container.innerHTML = '';
-
                     if (data.messages.length === 0) {
                         container.innerHTML = '<p>Nenhuma mensagem ainda. Seja o primeiro a enviar!</p>';
                         return;
                     }
-
                     data.messages.forEach(msg => {
                         const messageDiv = document.createElement('div');
                         messageDiv.className = 'message ' + (msg.sender === loggedUser ? 'sent' : 'received');
@@ -103,19 +90,16 @@
                         `;
                         container.appendChild(messageDiv);
                     });
-
                     container.scrollTop = container.scrollHeight;
                 }
             } catch (error) {
                 console.error('Erro ao carregar mensagens:', error);
             }
         }
-
         async function sendMessage() {
             const input = document.getElementById('messageInput');
             const text = input.value.trim();
             if (!text) return;
-
             try {
                 const response = await fetch('/api/enviar-mensagem', {
                     method: 'POST',
@@ -126,9 +110,7 @@
                         text: text
                     })
                 });
-
                 const data = await response.json();
-
                 if (response.ok) {
                     input.value = '';
                     loadMessages(); // Recarrega as mensagens após enviar
