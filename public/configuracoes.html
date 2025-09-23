@@ -10,7 +10,7 @@
     <header class="topbar">
         <h1>Configurações</h1>
         <nav>
-            <a href="home.html" class="btn-back">← Voltar</a>
+            <a href="/home" class="btn-back">← Voltar</a>
         </nav>
     </header>
     <main class="settings-content">
@@ -22,7 +22,6 @@
             <p>Versão: Alpha 0.1</p>
         </div>
     </main>
-
     <!-- ✅ MODAL 1: CONFIRMAÇÃO INICIAL (SIM/NÃO) -->
     <div id="confirmDeleteModal" style="display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); justify-content:center; align-items:center;">
         <div style="background:white; padding:30px; border-radius:15px; text-align:center; box-shadow:0 5px 20px rgba(0,0,0,0.2); max-width:400px;">
@@ -34,7 +33,6 @@
             </div>
         </div>
     </div>
-
     <!-- ✅ MODAL 2: DIGITAR CÓDIGO -->
     <div id="codeModal" style="display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); justify-content:center; align-items:center;">
         <div style="background:white; padding:30px; border-radius:15px; text-align:center; box-shadow:0 5px 20px rgba(0,0,0,0.2); max-width:400px;">
@@ -46,39 +44,32 @@
             </div>
         </div>
     </div>
-
     <script>
         let deleteCode = null;
-
         document.addEventListener('DOMContentLoaded', function() {
             const loggedUser = localStorage.getItem('loggedUser');
             if (!loggedUser) {
                 alert('❌ Faça login para acessar as configurações.');
-                window.location.href = 'login.html';
+                window.location.href = '/login';
                 return;
             }
-
             // ✅ ABRE O MODAL DE CONFIRMAÇÃO
             document.getElementById('deleteAccountBtn').addEventListener('click', function() {
                 document.getElementById('confirmDeleteModal').style.display = 'flex';
             });
-
             // ✅ FECHA O MODAL DE CONFIRMAÇÃO (NÃO)
             document.getElementById('confirmDeleteNo').addEventListener('click', function() {
                 document.getElementById('confirmDeleteModal').style.display = 'none';
             });
-
             // ✅ ENVIA O CÓDIGO (SIM)
             document.getElementById('confirmDeleteYes').addEventListener('click', async function() {
                 document.getElementById('confirmDeleteModal').style.display = 'none';
                 await sendVerificationCode(loggedUser);
             });
-
             // ✅ CANCELA O MODAL DE CÓDIGO
             document.getElementById('cancelCodeBtn').addEventListener('click', function() {
                 document.getElementById('codeModal').style.display = 'none';
             });
-
             // ✅ CONFIRMA O CÓDIGO DIGITADO
             document.getElementById('confirmCodeBtn').addEventListener('click', async function() {
                 const inputCode = document.getElementById('verificationCode').value.trim();
@@ -89,20 +80,16 @@
                 }
             });
         });
-
         // ✅ Envia o código de verificação por e-mail (via backend)
         async function sendVerificationCode(email) {
             deleteCode = Math.floor(1000 + Math.random() * 9000).toString();
-
             try {
                 const response = await fetch('/api/enviar-codigo-exclusao', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email, codigo: deleteCode })
                 });
-
                 const data = await response.json();
-
                 if (response.ok) {
                     document.getElementById('codeModal').style.display = 'flex';
                     document.getElementById('verificationCode').value = '';
@@ -114,7 +101,6 @@
                 alert('❌ Erro de conexão. Verifique se o servidor está rodando.');
             }
         }
-
         // ✅ Exclui a conta via backend
         async function deleteAccount(email) {
             try {
@@ -123,9 +109,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email })
                 });
-
                 const data = await response.json();
-
                 if (response.ok) {
                     alert('✅ Sua conta foi excluída com sucesso!');
                     // Limpa o localStorage e redireciona
@@ -133,7 +117,7 @@
                     localStorage.removeItem('nomeUsuario');
                     deleteCode = null;
                     document.getElementById('codeModal').style.display = 'none';
-                    window.location.href = 'login.html';
+                    window.location.href = '/login';
                 } else {
                     alert(`❌ ${data.error}`);
                 }
@@ -145,3 +129,4 @@
     </script>
 </body>
 </html>
+
