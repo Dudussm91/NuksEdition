@@ -10,7 +10,7 @@
     <header class="topbar">
         <h1>Amigos</h1>
         <nav>
-            <a href="home.html" class="btn-back">← Voltar</a>
+            <a href="/home" class="btn-back">← Voltar</a>
         </nav>
     </header>
     <main class="friends-content">
@@ -46,23 +46,19 @@
     </div>
     <script>
         let friendToRemove = null;
-
         document.addEventListener('DOMContentLoaded', function() {
             const loggedUser = localStorage.getItem('loggedUser');
             if (!loggedUser) {
                 alert('❌ Faça login para acessar seus amigos.');
-                window.location.href = 'login.html';
+                window.location.href = '/login';
                 return;
             }
-
             loadPendingInvites();
             loadFriends();
-
             document.getElementById('addFriendForm').addEventListener('submit', function(e) {
                 e.preventDefault();
                 addFriend();
             });
-
             document.getElementById('confirmYes').addEventListener('click', function() {
                 if (friendToRemove) {
                     removeFriendConfirmed(friendToRemove);
@@ -70,36 +66,29 @@
                 }
                 document.getElementById('confirmModal').style.display = 'none';
             });
-
             document.getElementById('confirmNo').addEventListener('click', function() {
                 friendToRemove = null;
                 document.getElementById('confirmModal').style.display = 'none';
             });
         });
-
         async function addFriend() {
             const loggedUser = localStorage.getItem('loggedUser');
             const friendEmail = document.getElementById('friendEmail').value.trim();
-
             if (!friendEmail) {
                 alert('❌ Digite o e-mail do amigo.');
                 return;
             }
-
             if (friendEmail === loggedUser) {
                 alert('❌ Você não pode adicionar sua própria conta.');
                 return;
             }
-
             try {
                 const response = await fetch('/api/adicionar-amigo', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ loggedUser, friendEmail })
                 });
-
                 const data = await response.json();
-
                 if (response.ok) {
                     alert(`✅ ${data.message}`);
                     document.getElementById('friendEmail').value = '';
@@ -112,27 +101,22 @@
                 alert('❌ Erro de conexão.');
             }
         }
-
         async function loadPendingInvites() {
             const loggedUser = localStorage.getItem('loggedUser');
             if (!loggedUser) return;
-
             try {
                 const response = await fetch('/api/convites-pendentes', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ loggedUser })
                 });
-
                 const data = await response.json();
-
                 if (response.ok) {
                     const container = document.getElementById('pendingList');
                     if (data.invites.length === 0) {
                         container.innerHTML = '<p>Nenhum convite pendente.</p>';
                         return;
                     }
-
                     let html = '';
                     data.invites.forEach(invite => {
                         html += `
@@ -154,27 +138,22 @@
                 console.error('Erro ao carregar convites:', error);
             }
         }
-
         async function loadFriends() {
             const loggedUser = localStorage.getItem('loggedUser');
             if (!loggedUser) return;
-
             try {
                 const response = await fetch('/api/meus-amigos', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ loggedUser })
                 });
-
                 const data = await response.json();
-
                 if (response.ok) {
                     const container = document.getElementById('friendsList');
                     if (data.friends.length === 0) {
                         container.innerHTML = '<p>Você ainda não tem amigos adicionados.</p>';
                         return;
                     }
-
                     let html = '';
                     data.friends.forEach(friend => {
                         html += `
@@ -196,20 +175,16 @@
                 console.error('Erro ao carregar amigos:', error);
             }
         }
-
         async function acceptFriend(inviterEmail) {
             const loggedUser = localStorage.getItem('loggedUser');
             if (!loggedUser) return;
-
             try {
                 const response = await fetch('/api/aceitar-amizade', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ loggedUser, inviterEmail })
                 });
-
                 const data = await response.json();
-
                 if (response.ok) {
                     alert('✅ Amizade confirmada!');
                     loadPendingInvites();
@@ -221,30 +196,24 @@
                 console.error('Erro ao aceitar amizade:', error);
             }
         }
-
         function rejectFriend(inviterEmail) {
             alert('❌ Convite recusado.');
             loadPendingInvites();
         }
-
         function removeFriend(friendEmail) {
             friendToRemove = friendEmail;
             document.getElementById('confirmModal').style.display = 'flex';
         }
-
         async function removeFriendConfirmed(friendEmail) {
             const loggedUser = localStorage.getItem('loggedUser');
             if (!loggedUser) return;
-
             try {
                 const response = await fetch('/api/remover-amigo', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ loggedUser, friendEmail })
                 });
-
                 const data = await response.json();
-
                 if (response.ok) {
                     alert('✅ Amigo removido.');
                     loadFriends();
@@ -255,9 +224,8 @@
                 console.error('Erro ao remover amigo:', error);
             }
         }
-
         function openChat(friendEmail) {
-            window.location.href = `chat.html?friend=${encodeURIComponent(friendEmail)}`;
+            window.location.href = `/chat?friend=${encodeURIComponent(friendEmail)}`;
         }
     </script>
 </body>
