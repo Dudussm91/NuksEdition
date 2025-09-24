@@ -1,3 +1,15 @@
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const emailLogado = localStorage.getItem('loggedUser');
+        if (!emailLogado) {
+            alert('❌ Você precisa estar logado para acessar esta página.');
+            window.location.href = '/login'; // ✅ Redireciona para /login
+            return;
+        }
+        // ... resto do seu código
+    });
+</script>
+
 // ✅ URL DO SEU SERVIÇO NO RENDER
 const API_URL = 'https://nuksedition.onrender.com';
 
@@ -545,3 +557,4 @@ async function sendMessage() {
         alert('❌ Erro de conexão. Verifique sua internet.');
     }
 }
+
