@@ -28,27 +28,19 @@
     </main>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const emailLogado = localStorage.getItem('loggedUser');
-            if (!emailLogado) {
+            const loggedUser = localStorage.getItem('loggedUser');
+            if (!loggedUser) {
                 alert('❌ Você precisa estar logado para acessar esta página.');
-                window.location.href = '/login';
+                window.location.href = '/login'; // ✅ Redireciona para /login
                 return;
             }
-            // ✅ TENTA PEGAR O NOME DO NOVO LOCALSTORAGE
-            const nomeSalvo = localStorage.getItem('nomeUsuario');
+            // Mostra o nome do usuário
             const userDisplay = document.getElementById('userName');
+            const nomeSalvo = localStorage.getItem('nomeUsuario');
             if (nomeSalvo) {
                 userDisplay.innerText = `Olá, ${nomeSalvo}!`;
             } else {
-                // Fallback: tenta pegar do formato antigo
-                const conta = JSON.parse(localStorage.getItem(emailLogado));
-                if (conta && conta.nome) {
-                    userDisplay.innerText = `Olá, ${conta.nome}!`;
-                    // ✅ Atualiza para o novo formato
-                    localStorage.setItem('nomeUsuario', conta.nome);
-                } else {
-                    userDisplay.innerText = 'Olá, Usuário!';
-                }
+                userDisplay.innerText = 'Olá, Usuário!';
             }
             // Lógica do dropdown
             const dropdown = document.getElementById('userDropdown');
