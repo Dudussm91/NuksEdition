@@ -31,7 +31,7 @@
             const loggedUser = localStorage.getItem('loggedUser');
             if (!loggedUser) {
                 alert('❌ Você precisa estar logado para acessar esta página.');
-                window.location.href = '/login'; // ✅ Redireciona para /login
+                window.location.href = '/login';
                 return;
             }
             // Mostra o nome do usuário
@@ -56,3 +56,4 @@
     </script>
 </body>
 </html>
+
