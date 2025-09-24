@@ -20,31 +20,6 @@ app.use((req, res, next) => {
 
 app.use(express.static('public'));
 
-// ✅ LISTA DE ROTAS SEM .HTML
-const rotasSemHtml = [
-    'home',
-    'amigos',
-    'chat',
-    'noticias',
-    'configuracoes',
-    'explorar',
-    'cadastro',
-    'confirmar',
-    'login'
-];
-
-// ✅ ADICIONA UMA ROTA PARA CADA PÁGINA SEM .HTML
-rotasSemHtml.forEach(rota => {
-    app.get(`/${rota}`, (req, res) => {
-        res.sendFile(path.join(__dirname, 'public', `${rota}.html`));
-    });
-});
-
-// ✅ ROTA RAIZ: Redireciona para /login
-app.get('/', (req, res) => {
-    res.redirect('/login');
-});
-
 // Estruturas de dados em memória
 const users = new Map();
 const pendingCodes = new Map();
