@@ -18,7 +18,13 @@ app.use((req, res, next) => {
     next();
 });
 
+// Serve os arquivos estáticos da pasta 'public'
 app.use(express.static('public'));
+
+// Rota para a raiz (/) -> serve login.html
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
 
 // Estruturas de dados em memória
 const users = new Map();
@@ -72,16 +78,13 @@ function loadDatabase() {
             console.log('ℹ️  Nenhum arquivo database.json encontrado. Iniciando com banco de dados vazio.');
             return;
         }
-
         const rawData = fs.readFileSync('database.json', 'utf8');
         const data = JSON.parse(rawData);
-
         // Recarrega 'users'
         users.clear();
         data.users.forEach(user => {
             users.set(user.email, { nome: user.nome, senha: user.senha });
         });
-
         // Recarrega 'pendingCodes'
         pendingCodes.clear();
         data.pendingCodes.forEach(item => {
@@ -92,31 +95,25 @@ function loadDatabase() {
                 timestamp: item.timestamp
             });
         });
-
         // Recarrega 'pendingFriendRequests'
         pendingFriendRequests.clear();
         data.pendingFriendRequests.forEach(item => {
             pendingFriendRequests.set(item.email, item.requests);
         });
-
         // Recarrega 'friendships'
         friendships.clear();
         data.friendships.forEach(item => {
             friendships.set(item.email, new Set(item.friends));
         });
-
         // Recarrega 'news'
         news = data.news || [];
-
         // Recarrega 'deleteCodes'
         deleteCodes.clear();
         data.deleteCodes.forEach(item => {
             deleteCodes.set(item.email, item.codigo);
         });
-
         // Recarrega 'chats'
         global.chats = data.chats || {};
-
         console.log('✅ Banco de dados carregado com sucesso de database.json');
     } catch (error) {
         console.error('❌ Erro ao carregar o banco de dados:', error.message);
@@ -257,13 +254,10 @@ app.post('/api/aceitar-amizade', (req, res) => {
     let pendingList = pendingFriendRequests.get(loggedUser) || [];
     pendingList = pendingList.filter(email => email !== inviterEmail);
     pendingFriendRequests.set(loggedUser, pendingList);
-
     if (!friendships.has(loggedUser)) friendships.set(loggedUser, new Set());
     if (!friendships.has(inviterEmail)) friendships.set(inviterEmail, new Set());
-
     friendships.get(loggedUser).add(inviterEmail);
     friendships.get(inviterEmail).add(loggedUser);
-
     saveDatabase(); // ✅ Salva após alteração
     res.status(200).json({ message: 'Amizade confirmada com sucesso!' });
 });
@@ -304,7 +298,6 @@ app.post('/api/remover-amigo', (req, res) => {
 // =============
 // SISTEMA DE NOTÍCIAS
 // =============
-
 app.get('/api/noticias', (req, res) => {
     const sortedNews = [...news].sort((a, b) => b.id - a.id);
     res.status(200).json({ noticias: sortedNews });
@@ -351,7 +344,6 @@ app.delete('/api/noticias/:id', (req, res) => {
 // =============
 // EXCLUSÃO DE CONTA
 // =============
-
 app.post('/api/enviar-codigo-exclusao', async (req, res) => {
     const { email, codigo } = req.body;
     if (!email || !codigo) {
@@ -399,7 +391,6 @@ app.post('/api/excluir-conta', (req, res) => {
 // =============
 // SISTEMA DE CHAT
 // =============
-
 app.post('/api/obter-usuario', (req, res) => {
     const { email } = req.body;
     if (!email) {
