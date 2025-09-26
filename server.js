@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const nodemailer = require('nodemailer');
 const path = require('path');
-const fs = require('fs'); // ✅ Adicionado para salvar/carregar o banco
+const fs = require('fs'); // ✅ Adicionado para salvar/carregar o banco e verificar arquivos
 
 const app = express();
 const PORT = process.env.PORT || 10000;
@@ -18,13 +18,35 @@ app.use((req, res, next) => {
     next();
 });
 
-// Serve os arquivos estáticos da pasta 'public'
-app.use(express.static('public'));
-
 // Rota para a raiz (/) -> serve login.html
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
+
+// Rota para lidar com URLs "bonitinhas" (pretty URLs)
+// Se não encontrar um arquivo estático, tenta adicionar .html e procurar novamente
+app.get(/^(\/[^.]+)*$/, (req, res, next) => {
+  // Verifica se a URL parece ser uma página HTML (não tem extensão ou não é outro tipo de arquivo)
+  // A regex ^(/[^.]+)*$ pega URLs que começam com / e não têm ponto (.) depois do primeiro segmento
+  const requestedPath = req.path; // Ex: /home, /amigos, /noticias
+  const pathWithHtml = requestedPath + '.html'; // Ex: /home.html, /amigos.html, /noticias.html
+
+  // Tenta encontrar o arquivo com a extensão .html na pasta pública
+  const fullPath = path.join(__dirname, 'public', pathWithHtml);
+
+  fs.access(fullPath, fs.constants.F_OK, (err) => {
+    if (!err) {
+      // O arquivo .html existe, então o serve
+      res.sendFile(fullPath);
+    } else {
+      // O arquivo .html não existe, continua para o middleware padrão (ou erro 404)
+      next();
+    }
+  });
+});
+
+// Serve os arquivos estáticos da pasta 'public' (DEPOIS das rotas personalizadas)
+app.use(express.static('public'));
 
 // Estruturas de dados em memória
 const users = new Map();
