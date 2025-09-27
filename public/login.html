@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - NuksEdition</title>
     <link rel="stylesheet" href="style.css">
+    <!-- ✅ Importa script.js primeiro -->
+    <script src="script.js"></script>
 </head>
 <body>
     <header>
@@ -24,17 +26,16 @@
         </div>
     </div>
     <script>
+        // ✅ Agora fazLogin() está disponível
         document.addEventListener('DOMContentLoaded', function() {
             const form = document.getElementById('loginForm');
             if (form) {
                 form.addEventListener('submit', function(e) {
                     e.preventDefault();
-                    fazerLogin(); // Agora vai funcionar porque script.js foi carregado antes
+                    fazerLogin();
                 });
             }
         });
     </script>
-    <!-- ✅ ADICIONADO -->
-    <script src="script.js"></script>
 </body>
 </html>
