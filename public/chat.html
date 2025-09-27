@@ -53,75 +53,19 @@
                 document.getElementById('chatTitle').innerText = `Chat com ${currentFriend}`;
             }
             // Carrega mensagens do servidor
-            loadMessages();
+            loadMessages(); // Agora vai funcionar porque script.js foi carregado antes
             // Configura botão e tecla Enter
-            document.getElementById('sendButton').addEventListener('click', sendMessage);
+            document.getElementById('sendButton').addEventListener('click', sendMessage); // Agora vai funcionar porque script.js foi carregado antes
             document.getElementById('messageInput').addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
-                    sendMessage();
+                    sendMessage(); // Agora vai funcionar porque script.js foi carregado antes
                 }
             });
             // Atualiza mensagens a cada 3 segundos (opcional, para "tempo real")
             setInterval(loadMessages, 3000);
         });
-        async function loadMessages() {
-            if (!loggedUser || !currentFriend) return;
-            try {
-                const response = await fetch('/api/carregar-mensagens', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ loggedUser, friendEmail: currentFriend })
-                });
-                const data = await response.json();
-                if (response.ok) {
-                    const container = document.getElementById('chatMessages');
-                    container.innerHTML = '';
-                    if (data.messages.length === 0) {
-                        container.innerHTML = '<p>Nenhuma mensagem ainda. Seja o primeiro a enviar!</p>';
-                        return;
-                    }
-                    data.messages.forEach(msg => {
-                        const messageDiv = document.createElement('div');
-                        messageDiv.className = 'message ' + (msg.sender === loggedUser ? 'sent' : 'received');
-                        const time = new Date(msg.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-                        messageDiv.innerHTML = `
-                            <div>${msg.text}</div>
-                            <div style="font-size: 0.8rem; color: #666; text-align: ${msg.sender === loggedUser ? 'right' : 'left'};">${time}</div>
-                        `;
-                        container.appendChild(messageDiv);
-                    });
-                    container.scrollTop = container.scrollHeight;
-                }
-            } catch (error) {
-                console.error('Erro ao carregar mensagens:', error);
-            }
-        }
-        async function sendMessage() {
-            const input = document.getElementById('messageInput');
-            const text = input.value.trim();
-            if (!text) return;
-            try {
-                const response = await fetch('/api/enviar-mensagem', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        sender: loggedUser,
-                        receiver: currentFriend,
-                        text: text
-                    })
-                });
-                const data = await response.json();
-                if (response.ok) {
-                    input.value = '';
-                    loadMessages(); // Recarrega as mensagens após enviar
-                } else {
-                    alert(`❌ ${data.error}`);
-                }
-            } catch (error) {
-                console.error('Erro ao enviar mensagem:', error);
-                alert('❌ Erro de conexão. Verifique sua internet.');
-            }
-        }
     </script>
+    <!-- ✅ ADICIONADO -->
+    <script src="script.js"></script>
 </body>
 </html>
