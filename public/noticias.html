@@ -52,16 +52,17 @@
             const isAdmin = admins.includes(loggedUser);
             if (isAdmin) {
                 document.getElementById('adminSection').style.display = 'block';
-                document.getElementById('newsForm').addEventListener('submit', createNews);
-                document.getElementById('confirmDeleteYes').addEventListener('click', confirmDeleteNews);
+                document.getElementById('newsForm').addEventListener('submit', createNews); // Agora vai funcionar porque script.js foi carregado antes
+                document.getElementById('confirmDeleteYes').addEventListener('click', confirmDeleteNews); // Agora vai funcionar porque script.js foi carregado antes
                 document.getElementById('confirmDeleteNo').addEventListener('click', function() {
                     newsToDelete = null;
                     document.getElementById('confirmDeleteModal').style.display = 'none';
                 });
             }
-            loadNews();
+            loadNews(); // Agora vai funcionar porque script.js foi carregado antes
         });
     </script>
+    <!-- ✅ ADICIONADO -->
+    <script src="script.js"></script>
 </body>
 </html>
-
