@@ -64,7 +64,7 @@
             // ✅ ENVIA O CÓDIGO (SIM)
             document.getElementById('confirmDeleteYes').addEventListener('click', async function() {
                 document.getElementById('confirmDeleteModal').style.display = 'none';
-                await sendVerificationCode(loggedUser);
+                await sendVerificationCode(loggedUser); // Agora vai funcionar porque script.js foi carregado antes
             });
             // ✅ CANCELA O MODAL DE CÓDIGO
             document.getElementById('cancelCodeBtn').addEventListener('click', function() {
@@ -74,59 +74,14 @@
             document.getElementById('confirmCodeBtn').addEventListener('click', async function() {
                 const inputCode = document.getElementById('verificationCode').value.trim();
                 if (inputCode === deleteCode) {
-                    await deleteAccount(loggedUser);
+                    await deleteAccount(loggedUser); // Agora vai funcionar porque script.js foi carregado antes
                 } else {
                     alert('❌ Código incorreto. Tente novamente.');
                 }
             });
         });
-        // ✅ Envia o código de verificação por e-mail (via backend)
-        async function sendVerificationCode(email) {
-            deleteCode = Math.floor(1000 + Math.random() * 9000).toString();
-            try {
-                const response = await fetch('/api/enviar-codigo-exclusao', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, codigo: deleteCode })
-                });
-                const data = await response.json();
-                if (response.ok) {
-                    document.getElementById('codeModal').style.display = 'flex';
-                    document.getElementById('verificationCode').value = '';
-                } else {
-                    alert(`❌ ${data.error}`);
-                }
-            } catch (error) {
-                console.error('Erro ao enviar código:', error);
-                alert('❌ Erro de conexão. Verifique se o servidor está rodando.');
-            }
-        }
-        // ✅ Exclui a conta via backend
-        async function deleteAccount(email) {
-            try {
-                const response = await fetch('/api/excluir-conta', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email })
-                });
-                const data = await response.json();
-                if (response.ok) {
-                    alert('✅ Sua conta foi excluída com sucesso!');
-                    // Limpa o localStorage e redireciona
-                    localStorage.removeItem('loggedUser');
-                    localStorage.removeItem('nomeUsuario');
-                    deleteCode = null;
-                    document.getElementById('codeModal').style.display = 'none';
-                    window.location.href = '/login';
-                } else {
-                    alert(`❌ ${data.error}`);
-                }
-            } catch (error) {
-                console.error('Erro ao excluir conta:', error);
-                alert('❌ Erro de conexão. Tente novamente.');
-            }
-        }
     </script>
+    <!-- ✅ ADICIONADO -->
+    <script src="script.js"></script>
 </body>
 </html>
-
