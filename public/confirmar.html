@@ -39,66 +39,11 @@
             // Envia o formulário
             document.getElementById('confirmForm').addEventListener('submit', function(e) {
                 e.preventDefault();
-                confirmarCodigo(email); // Passa o e-mail diretamente
+                confirmarCodigo(email); // Agora vai funcionar porque script.js foi carregado antes
             });
         });
-        async function confirmarCodigo(email) {
-            const codigoDigitado = document.getElementById('codigoInput').value.trim();
-            if (!codigoDigitado) {
-                alert('❌ Preencha o código de confirmação!');
-                return;
-            }
-            try {
-                const response = await fetch('/api/confirmar-codigo', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, codigo: codigoDigitado })
-                });
-                const data = await response.json();
-                if (response.ok) {
-                    alert(`✅ ${data.message}`);
-                    // ✅ SALVA O NOME DO USUÁRIO NO LOCALSTORAGE (PARA MOSTRAR NO HOME)
-                    localStorage.setItem('loggedUser', email);
-                    localStorage.setItem('nomeUsuario', data.nome); // <-- ISSO É NOVO E IMPORTANTE!
-                    window.location.href = '/home';
-                } else {
-                    alert(`❌ ${data.error}`);
-                }
-            } catch (error) {
-                console.error('Erro de conexão:', error);
-                alert('❌ Erro de conexão. Verifique sua internet.');
-            }
-        }
-        function reenviarCodigo() {
-            const emailPendente = localStorage.getItem('pendingEmail');
-            if (!emailPendente) {
-                alert('❌ Nenhum cadastro pendente.');
-                return;
-            }
-            const novoCodigo = Math.floor(1000 + Math.random() * 9000).toString();
-            fetch('/api/cadastrar', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    nome: "Usuário",
-                    email: emailPendente,
-                    senha: "senha",
-                    codigo: novoCodigo
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.message) {
-                    alert(`✅ ${data.message}`);
-                } else {
-                    alert(`❌ ${data.error}`);
-                }
-            })
-            .catch(error => {
-                console.error('Erro ao reenviar:', error);
-                alert('❌ Erro de conexão. Verifique sua internet.');
-            });
-        }
     </script>
+    <!-- ✅ ADICIONADO -->
+    <script src="script.js"></script>
 </body>
 </html>
