@@ -29,11 +29,12 @@
             if (form) {
                 form.addEventListener('submit', function(e) {
                     e.preventDefault();
-                    fazerLogin();
+                    fazerLogin(); // Agora vai funcionar porque script.js foi carregado antes
                 });
             }
         });
     </script>
+    <!-- ✅ ADICIONADO -->
+    <script src="script.js"></script>
 </body>
 </html>
-
