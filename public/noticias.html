@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Notícias - NuksEdition</title>
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; background: white; }
+        .topbar { background: gray; color: white; display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; font-size: 16px; font-weight: bold; }
+        .topbar .username { margin-left: 10px; }
+        .topbar .back-link { margin-right: 10px; color: white; text-decoration: none; }
+        .topbar .back-link:hover { text-decoration: underline; }
+        .admin-panel { width: 500px; margin: 20px auto; padding: 15px; border: 2px solid gray; background: #f9f9f9; }
+        .admin-panel h3 { margin-top: 0; }
+        .admin-panel input[type="text"],
+        .admin-panel textarea { width: 100%; padding: 8px; margin: 5px 0; border: 1px solid gray; box-sizing: border-box; }
+        .admin-panel input[type="file"] { width: 100%; margin: 5px 0; }
+        .admin-panel button { background: gray; color: white; border: none; padding: 8px 15px; cursor: pointer; margin-top: 10px; }
+        .news-list { width: 600px; margin: 20px auto; }
+        .news-item { border: 1px solid black; margin-bottom: 20px; padding: 15px; }
+        .news-item img { max-width: 100%; height: auto; }
+        .news-date { font-size: 12px; color: gray; margin-top: 5px; }
+        .delete-btn { background: red; color: white; border: none; padding: 5px 10px; cursor: pointer; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <span class="username">Carregando...</span>
+        <a href="/home" class="back-link">Voltar</a>
+    </div>
+
+    <div id="adminPanel" style="display:none;" class="admin-panel">
+        <h3>Publicar Nova Notícia</h3>
+        <input type="text" id="newsTitle" placeholder="Título da notícia" required>
+        <input type="file" id="newsImage" accept="image/*" required>
+        <textarea id="newsDesc" placeholder="Descrição (opcional)" rows="3"></textarea>
+        <button onclick="publishNews()">Publicar</button>
+    </div>
+
+    <div class="news-list" id="newsList"></div>
+
+    <script>
+        if (!sessionStorage.getItem('isLoggedIn')) {
+            alert('Você precisa estar logado para acessar esta página.');
+            window.location.href = '/login';
+        }
+
+        const email = sessionStorage.getItem('email') || '';
+        const username = sessionStorage.getItem('username') || 'Usuário';
+        document.querySelector('.username').textContent = username;
+
+        const ADMINS = [
+            'nukseditionofc@gmail.com',
+            'eduardomarangoni36@gmail.com'
+        ];
+        const isAdmin = ADMINS.includes(email);
+
+        if (isAdmin) {
+            document.getElementById('adminPanel').style.display = 'block';
+        }
+
+        async function loadNews() {
+            try {
+                const res = await fetch('http://localhost:3000/api/news');
+                const news = await res.json();
+                const list = document.getElementById('newsList');
+                list.innerHTML = '';
+
+                news.forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = 'news-item';
+                    const imgPath = `http://localhost:3000/uploads/${item.imageUrl}`;
+                    div.innerHTML = `
+                        <h3>${item.title}</h3>
+                        <img src="${imgPath}" alt="Imagem da notícia" onerror="this.style.display='none'">
+                        ${item.description ? `<p>${item.description}</p>` : ''}
+                        <div class="news-date">Publicado em: ${item.date}</div>
+                        ${isAdmin ? `<button class="delete-btn" onclick="deleteNews('${item.id}')">Apagar</button>` : ''}
+                    `;
+                    list.appendChild(div);
+                });
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        async function publishNews() {
+            const title = document.getElementById('newsTitle').value.trim();
+            const fileInput = document.getElementById('newsImage');
+            const description = document.getElementById('newsDesc').value.trim();
+
+            if (!title || !fileInput.files[0]) {
+                alert('Título e imagem são obrigatórios.');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('email', email);
+            formData.append('title', title);
+            formData.append('description', description);
+            formData.append('image', fileInput.files[0]);
+
+            try {
+                const res = await fetch('http://localhost:3000/api/news/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    alert('Notícia publicada com sucesso!');
+                    document.getElementById('newsTitle').value = '';
+                    document.getElementById('newsImage').value = '';
+                    document.getElementById('newsDesc').value = '';
+                    loadNews();
+                } else {
+                    alert(data.error || 'Erro ao publicar.');
+                }
+            } catch (err) {
+                alert('Erro de conexão ao publicar notícia.');
+            }
+        }
+
+        async function deleteNews(id) {
+            if (!confirm('Tem certeza?')) return;
+            try {
+                const res = await fetch(`http://localhost:3000/api/news/${id}?email=${email}`, {
+                    method: 'DELETE'
+                });
+                if (res.ok) {
+                    loadNews();
+                } else {
+                    const data = await res.json();
+                    alert(data.error || 'Erro ao apagar.');
+                }
+            } catch (err) {
+                alert('Erro de conexão ao apagar notícia.');
+            }
+        }
+
+        loadNews();
+    </script>
+</body>
+</html>

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Explorar - NuksEdition</title>
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; background: white; }
+        .topbar { background: gray; color: white; display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; font-size: 16px; font-weight: bold; }
+        .topbar .username { margin-left: 10px; }
+        .topbar .back-link { margin-right: 10px; }
+        .topbar a { color: white; text-decoration: none; }
+        .topbar a:hover { text-decoration: underline; }
+        .content-box { width: 300px; margin: 50px auto; padding: 20px; border: 3px solid black; font-size: 16px; text-align: center; line-height: 1.6; }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <span class="username">Carregando...</span>
+        <a href="/home" class="back-link">Voltar</a>
+    </div>
+
+    <div class="content-box">
+        <p>ByteVerso</p>
+        <p>Não lançado</p>
+    </div>
+
+    <script>
+        if (!sessionStorage.getItem('isLoggedIn')) {
+            alert('Você precisa estar cadastrado e logado para acessar esta página.');
+            window.location.href = '/login';
+        }
+        const username = sessionStorage.getItem('username') || 'Usuário';
+        document.querySelector('.username').textContent = username;
+    </script>
+</body>
+</html>

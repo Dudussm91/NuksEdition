@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Home - NuksEdition</title>
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; background: white; }
+        .topbar { background: gray; color: white; display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; font-size: 16px; font-weight: bold; }
+        .topbar .username { margin-left: 10px; }
+        .topbar .nav-links { display: flex; gap: 20px; margin-right: 10px; }
+        .topbar a { color: white; text-decoration: none; }
+        .topbar a:hover { text-decoration: underline; }
+        .content-box { width: 500px; margin: 50px auto; padding: 20px; border: 3px solid black; font-size: 16px; line-height: 1.6; }
+        .content-box p { margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <span class="username">Carregando...</span>
+        <div class="nav-links">
+            <a href="/explorar">Explorar</a>
+            <a href="/noticias">Notícias</a>
+        </div>
+    </div>
+
+    <div class="content-box">
+        <p>Bem vindo ao site NuksEdition</p>
+        <p>Explorar, não tem sites lançados</p>
+        <p>Notícias, veja as notícias novas</p>
+    </div>
+
+    <script>
+        if (!sessionStorage.getItem('isLoggedIn')) {
+            alert('Você precisa estar cadastrado e logado para acessar esta página.');
+            window.location.href = '/login';
+        }
+        const username = sessionStorage.getItem('username') || 'Usuário';
+        document.querySelector('.username').textContent = username;
+    </script>
+</body>
+</html>
