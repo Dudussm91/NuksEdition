@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 const express = require('express');
 const nodemailer = require('nodemailer');
 const multer = require('multer');
@@ -6,15 +8,15 @@ const path = require('path');
 const cors = require('cors');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
 
-// Servir apenas uploads (não servimos HTML diretamente)
+// Servir uploads
 app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
 
-// Rotas limpas (SEM .html)
+// Rotas limpas
 app.get('/', (req, res) => {
     res.redirect('/login');
 });
@@ -43,7 +45,7 @@ app.get('/noticias', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'noticias.html'));
 });
 
-// ✅ BLOQUEIA QUALQUER URL COM .html → mostra erro 404
+// ✅ BLOQUEIA QUALQUER URL QUE TERMINE COM .html
 app.get(/\.html$/, (req, res) => {
     res.status(404).send(`
         <html>
@@ -57,7 +59,7 @@ app.get(/\.html$/, (req, res) => {
     `);
 });
 
-// APIs (cadastrar, login, notícias, etc.)
+// Arquivos de dados
 const USERS_FILE = path.join(__dirname, 'users.json');
 const NEWS_FILE = path.join(__dirname, 'news.json');
 const UPLOADS_DIR = path.join(__dirname, 'public', 'uploads');
@@ -66,8 +68,7 @@ if (!require('fs').existsSync(UPLOADS_DIR)) {
     require('fs').mkdirSync(UPLOADS_DIR, { recursive: true });
 }
 
-const pendingCodes = new Map();
-
+// Funções de leitura/escrita
 async function readUsers() {
     try {
         const data = await fs.readFile(USERS_FILE, 'utf8');
@@ -94,15 +95,19 @@ async function saveNews(news) {
     await fs.writeFile(NEWS_FILE, JSON.stringify(news, null, 2));
 }
 
+// ✅ Nodemailer com variáveis de ambiente
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
-        user: 'nukseditionofc@gmail.com',
-        pass: 'srbp bdxh nwlx jueg'
+        user: process.env.EMAIL_USER,      // nukseditionofc@gmail.com
+        pass: process.env.EMAIL_APP_PASS   // senha de app do Gmail
     }
 });
 
-const ADMINS = ['nukseditionofc@gmail.com', 'eduardomarangoni36@gmail.com'];
+const ADMINS = [
+    'nukseditionofc@gmail.com',
+    'eduardomarangoni36@gmail.com'
+];
 
 // APIs
 app.post('/api/cadastrar', async (req, res) => {
@@ -119,14 +124,15 @@ app.post('/api/cadastrar', async (req, res) => {
     await saveUsers(users);
     try {
         await transporter.sendMail({
-            from: 'nukseditionofc@gmail.com',
+            from: process.env.EMAIL_USER,
             to: email,
-            subject: 'Código de Confirmação',
-            text: `Seu código: ${code}`
+            subject: 'Código de Confirmação - NuksEdition',
+            text: `Seu código de confirmação é: ${code}`
         });
-        res.json({ message: 'Código enviado.', email });
+        res.json({ message: 'Código enviado por email.', email });
     } catch (err) {
-        res.status(500).json({ error: 'Erro ao enviar email.' });
+        console.error('Erro no Nodemailer:', err);
+        res.status(500).json({ error: 'Erro ao enviar email. Verifique as credenciais.' });
     }
 });
 
@@ -135,12 +141,12 @@ app.post('/api/confirmar', async (req, res) => {
     const users = await readUsers();
     const userIndex = users.findIndex(u => u.email === email && u.code === code);
     if (userIndex === -1) {
-        return res.status(400).json({ error: 'Código inválido.' });
+        return res.status(400).json({ error: 'Código inválido ou expirado.' });
     }
     users[userIndex].confirmed = true;
     delete users[userIndex].code;
     await saveUsers(users);
-    res.json({ message: 'Conta confirmada!', username: users[userIndex].username });
+    res.json({ message: 'Conta confirmada com sucesso!', username: users[userIndex].username });
 });
 
 app.post('/api/login', async (req, res) => {
@@ -153,13 +159,16 @@ app.post('/api/login', async (req, res) => {
     res.json({ message: 'Login bem-sucedido!', username: user.username });
 });
 
-app.post('/api/news/upload', multer({ dest: UPLOADS_DIR }).single('image'), async (req, res) => {
+// Upload de notícias
+const upload = multer({ dest: UPLOADS_DIR });
+
+app.post('/api/news/upload', upload.single('image'), async (req, res) => {
     const { email, title, description } = req.body;
     if (!ADMINS.includes(email)) {
-        return res.status(403).json({ error: 'Apenas administradores.' });
+        return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
     }
     if (!title || !req.file) {
-        return res.status(400).json({ error: 'Título e imagem obrigatórios.' });
+        return res.status(400).json({ error: 'Título e imagem são obrigatórios.' });
     }
     const news = await readNews();
     news.unshift({
@@ -171,7 +180,7 @@ app.post('/api/news/upload', multer({ dest: UPLOADS_DIR }).single('image'), asyn
         date: new Date().toISOString().split('T')[0]
     });
     await saveNews(news);
-    res.json({ message: 'Notícia publicada!' });
+    res.json({ message: 'Notícia publicada com sucesso!' });
 });
 
 app.get('/api/news', async (req, res) => {
@@ -182,7 +191,7 @@ app.get('/api/news', async (req, res) => {
 app.delete('/api/news/:id', async (req, res) => {
     const { email } = req.query;
     if (!ADMINS.includes(email)) {
-        return res.status(403).json({ error: 'Apenas administradores.' });
+        return res.status(403).json({ error: 'Apenas administradores podem apagar notícias.' });
     }
     const news = await readNews();
     const filtered = news.filter(n => n.id !== req.params.id);
@@ -190,7 +199,7 @@ app.delete('/api/news/:id', async (req, res) => {
     res.json({ message: 'Notícia apagada.' });
 });
 
-// Qualquer outra rota → 404
+// 404 geral
 app.use((req, res) => {
     res.status(404).send('Página não encontrada');
 });
