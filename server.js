@@ -13,10 +13,10 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Servir uploads
+// Servir pasta de uploads
 app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
 
-// Rotas limpas
+// Rotas limpas (SEM .html)
 app.get('/', (req, res) => {
     res.redirect('/login');
 });
@@ -45,7 +45,7 @@ app.get('/noticias', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'noticias.html'));
 });
 
-// ✅ BLOQUEIA QUALQUER URL QUE TERMINE COM .html
+// ✅ CORREÇÃO: bloqueia .html com REGEX válida (sem erro de path-to-regexp)
 app.get(/\.html$/, (req, res) => {
     res.status(404).send(`
         <html>
@@ -68,7 +68,6 @@ if (!require('fs').existsSync(UPLOADS_DIR)) {
     require('fs').mkdirSync(UPLOADS_DIR, { recursive: true });
 }
 
-// Funções de leitura/escrita
 async function readUsers() {
     try {
         const data = await fs.readFile(USERS_FILE, 'utf8');
@@ -99,8 +98,8 @@ async function saveNews(news) {
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
-        user: process.env.EMAIL_USER,      // nukseditionofc@gmail.com
-        pass: process.env.EMAIL_APP_PASS   // senha de app do Gmail
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_APP_PASS
     }
 });
 
@@ -109,7 +108,7 @@ const ADMINS = [
     'eduardomarangoni36@gmail.com'
 ];
 
-// APIs
+// API: Cadastro
 app.post('/api/cadastrar', async (req, res) => {
     const { email, username, password } = req.body;
     if (password.length < 6) {
@@ -127,28 +126,30 @@ app.post('/api/cadastrar', async (req, res) => {
             from: process.env.EMAIL_USER,
             to: email,
             subject: 'Código de Confirmação - NuksEdition',
-            text: `Seu código de confirmação é: ${code}`
+            text: `Seu código: ${code}`
         });
-        res.json({ message: 'Código enviado por email.', email });
+        res.json({ message: 'Código enviado.', email });
     } catch (err) {
-        console.error('Erro no Nodemailer:', err);
-        res.status(500).json({ error: 'Erro ao enviar email. Verifique as credenciais.' });
+        console.error('Erro no email:', err.message);
+        res.status(500).json({ error: 'Erro ao enviar email.' });
     }
 });
 
+// API: Confirmar
 app.post('/api/confirmar', async (req, res) => {
     const { email, code } = req.body;
     const users = await readUsers();
     const userIndex = users.findIndex(u => u.email === email && u.code === code);
     if (userIndex === -1) {
-        return res.status(400).json({ error: 'Código inválido ou expirado.' });
+        return res.status(400).json({ error: 'Código inválido.' });
     }
     users[userIndex].confirmed = true;
     delete users[userIndex].code;
     await saveUsers(users);
-    res.json({ message: 'Conta confirmada com sucesso!', username: users[userIndex].username });
+    res.json({ message: 'Conta confirmada!', username: users[userIndex].username });
 });
 
+// API: Login
 app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
     const users = await readUsers();
@@ -159,16 +160,15 @@ app.post('/api/login', async (req, res) => {
     res.json({ message: 'Login bem-sucedido!', username: user.username });
 });
 
-// Upload de notícias
+// API: Publicar notícia
 const upload = multer({ dest: UPLOADS_DIR });
-
 app.post('/api/news/upload', upload.single('image'), async (req, res) => {
     const { email, title, description } = req.body;
     if (!ADMINS.includes(email)) {
-        return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
+        return res.status(403).json({ error: 'Apenas administradores.' });
     }
     if (!title || !req.file) {
-        return res.status(400).json({ error: 'Título e imagem são obrigatórios.' });
+        return res.status(400).json({ error: 'Título e imagem obrigatórios.' });
     }
     const news = await readNews();
     news.unshift({
@@ -180,18 +180,20 @@ app.post('/api/news/upload', upload.single('image'), async (req, res) => {
         date: new Date().toISOString().split('T')[0]
     });
     await saveNews(news);
-    res.json({ message: 'Notícia publicada com sucesso!' });
+    res.json({ message: 'Notícia publicada!' });
 });
 
+// API: Listar notícias
 app.get('/api/news', async (req, res) => {
     const news = await readNews();
     res.json(news);
 });
 
+// API: Apagar notícia
 app.delete('/api/news/:id', async (req, res) => {
     const { email } = req.query;
     if (!ADMINS.includes(email)) {
-        return res.status(403).json({ error: 'Apenas administradores podem apagar notícias.' });
+        return res.status(403).json({ error: 'Apenas administradores.' });
     }
     const news = await readNews();
     const filtered = news.filter(n => n.id !== req.params.id);
