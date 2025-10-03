@@ -1,5 +1,4 @@
-require('dotenv').config();
-
+// server.js
 const express = require('express');
 const nodemailer = require('nodemailer');
 const multer = require('multer');
@@ -13,10 +12,10 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Servir pasta de uploads
+// Servir uploads
 app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
 
-// Rotas limpas (SEM .html)
+// Rotas limpas
 app.get('/', (req, res) => {
     res.redirect('/login');
 });
@@ -45,7 +44,7 @@ app.get('/noticias', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'noticias.html'));
 });
 
-// ✅ CORREÇÃO: bloqueia .html com REGEX válida (sem erro de path-to-regexp)
+// ✅ CORRETO: bloqueia .html com REGEX (sem erro de path-to-regexp)
 app.get(/\.html$/, (req, res) => {
     res.status(404).send(`
         <html>
@@ -94,7 +93,7 @@ async function saveNews(news) {
     await fs.writeFile(NEWS_FILE, JSON.stringify(news, null, 2));
 }
 
-// ✅ Nodemailer com variáveis de ambiente
+// ✅ Nodemailer com variáveis de ambiente (Render)
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
@@ -160,7 +159,7 @@ app.post('/api/login', async (req, res) => {
     res.json({ message: 'Login bem-sucedido!', username: user.username });
 });
 
-// API: Publicar notícia
+// API: Notícias
 const upload = multer({ dest: UPLOADS_DIR });
 app.post('/api/news/upload', upload.single('image'), async (req, res) => {
     const { email, title, description } = req.body;
@@ -183,13 +182,11 @@ app.post('/api/news/upload', upload.single('image'), async (req, res) => {
     res.json({ message: 'Notícia publicada!' });
 });
 
-// API: Listar notícias
 app.get('/api/news', async (req, res) => {
     const news = await readNews();
     res.json(news);
 });
 
-// API: Apagar notícia
 app.delete('/api/news/:id', async (req, res) => {
     const { email } = req.query;
     if (!ADMINS.includes(email)) {
@@ -207,5 +204,5 @@ app.use((req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`✅ Servidor rodando em http://localhost:${PORT}`);
+    console.log(`✅ Servidor rodando na porta ${PORT}`);
 });
