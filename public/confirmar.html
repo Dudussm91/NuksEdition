@@ -22,7 +22,6 @@
         <input type="text" placeholder="Digite os 6 dígitos" maxlength="6" inputmode="numeric">
         <button>Continuar</button>
     </div>
-
     <script>
         const email = sessionStorage.getItem('pendingEmail');
         if (email) {
@@ -30,13 +29,11 @@
         } else {
             document.querySelector('p').textContent = 'Erro: email não encontrado.';
         }
-
         document.querySelector('button').addEventListener('click', async () => {
             const code = document.querySelector('input').value;
             if (!code || code.length !== 6 || isNaN(code)) return alert('Digite exatamente 6 dígitos numéricos.');
-
             try {
-                const res = await fetch('http://localhost:3000/api/confirmar', {
+                const res = await fetch('/api/confirmar', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email, code })
