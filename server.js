@@ -80,27 +80,27 @@ async function saveNews(news) {
   await fs.writeFile(NEWS_FILE, JSON.stringify(news, null, 2));
 }
 
-// ✅ Configuração do Nodemailer — com validação
+// ✅ Configuração do Nodemailer — com as variáveis corretas
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_APP_PASS
+    pass: process.env.EMAIL_APP_PASS // ← agora vai buscar a variável certa
   }
 });
 
-// Testar configuração do e-mail no início (opcional, mas útil)
-transporter.verify((error, success) => {
+// Verificação de configuração
+transporter.verify((error) => {
   if (error) {
-    console.error('⚠️ Erro na configuração do e-mail:', error.message);
+    console.error('❌ Erro nas credenciais do e-mail:', error.message);
   } else {
-    console.log('✅ Servidor de e-mail pronto para enviar.');
+    console.log('✅ Servidor de e-mail configurado corretamente.');
   }
 });
 
 const ADMINS = ['nukseditionofc@gmail.com', 'eduardomarangoni36@gmail.com'];
 
-// ✅ CADASTRO — com reenvio e sem bloqueio
+// CADASTRO — com reenvio para não confirmados
 app.post('/api/cadastrar', async (req, res) => {
   const { email, username, password } = req.body;
   if (!email || !username || !password) {
@@ -119,7 +119,7 @@ app.post('/api/cadastrar', async (req, res) => {
     if (existingUser.confirmed) {
       return res.status(400).json({ error: 'Email já cadastrado. Faça login.' });
     } else {
-      // Atualiza usuário não confirmado
+      // Reutiliza usuário não confirmado
       existingUser.username = username;
       existingUser.password = password;
       existingUser.code = code;
@@ -132,9 +132,7 @@ app.post('/api/cadastrar', async (req, res) => {
         to: email,
         subject: '🔄 Novo Código de Confirmação - NuksEdition',
         text: `Seu novo código: ${code}`
-      }).catch(err => {
-        console.error(`❌ Falha ao reenviar e-mail para ${email}:`, err.message);
-      });
+      }).catch(err => console.error(`Falha ao reenviar para ${email}:`, err.message));
 
       return res.json({ message: 'Novo código enviado.', email });
     }
@@ -147,15 +145,13 @@ app.post('/api/cadastrar', async (req, res) => {
   // Responde imediatamente
   res.json({ message: 'Código enviado.', email });
 
-  // Envia e-mail em segundo plano (não bloqueia)
+  // Envia e-mail em segundo plano
   transporter.sendMail({
     from: process.env.EMAIL_USER,
     to: email,
     subject: '🔐 Código de Confirmação - NuksEdition',
-    text: `Seu código de confirmação é: ${code}`
-  }).catch(err => {
-    console.error(`❌ Falha ao enviar e-mail para ${email}:`, err.message);
-  });
+    text: `Seu código: ${code}`
+  }).catch(err => console.error(`Falha ao enviar para ${email}:`, err.message));
 });
 
 // CONFIRMAR
@@ -243,5 +239,6 @@ app.use((req, res) => {
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Servidor rodando na porta ${PORT}`);
-  console.log(`📧 EMAIL_USER configurado: ${process.env.EMAIL_USER ? 'Sim' : 'NÃO'}`);
+  console.log(`📧 EMAIL_USER: ${process.env.EMAIL_USER || 'NÃO DEFINIDO'}`);
+  console.log(`🔑 EMAIL_APP_PASS: ${process.env.EMAIL_APP_PASS ? 'DEFINIDO' : 'NÃO DEFINIDO'}`);
 });
