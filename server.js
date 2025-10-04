@@ -1,8 +1,7 @@
-// server.js — COM SUPABASE (funciona no Render)
+// server.js — SUPABASE + RENDER + SEM ERROS
 const express = require('express');
 const nodemailer = require('nodemailer');
 const multer = require('multer');
-const fs = require('fs').promises;
 const path = require('path');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
@@ -20,10 +19,10 @@ if (!require('fs').existsSync(UPLOADS_DIR)) {
 }
 app.use('/uploads', express.static(UPLOADS_DIR));
 
-// Conexão com Supabase
+// Supabase
 const supabaseUrl = 'https://qkvglgggwmjnqeperhar.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFrdmdsZ2dnd21qbnFlcGVyaGFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk1MjI1ODUsImV4cCI6MjA3NTA5ODU4NX0.-khMRh9WvF5jXQYA86YlwRuO9x7bawcQS-RouzkE4dM';
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFrdmdsZ2dnd21qbnFlcGVyaGFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk1MjI1ODUsImV4cCI6MjA3NTA5ODU4NX0.-khMRh9WvF5jXQYA86YlwRuO9x7bawcQS-RouzkE4dM';
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Rotas HTML
 app.get('/', (req, res) => res.redirect('/login'));
@@ -34,7 +33,7 @@ app.get('/home', (req, res) => res.sendFile(path.join(__dirname, 'public', 'home
 app.get('/explorar', (req, res) => res.sendFile(path.join(__dirname, 'public', 'explorar.html')));
 app.get('/noticias', (req, res) => res.sendFile(path.join(__dirname, 'public', 'noticias.html')));
 
-// Bloquear acesso direto a .html
+// Bloquear .html direto
 app.get(/\.html$/, (req, res) => {
   res.status(404).send(`
     <html>
@@ -62,7 +61,7 @@ const ADMINS = [
   'eduardomarangoni36@gmail.com'
 ];
 
-// API: Cadastro
+// === CADASTRO ===
 app.post('/api/cadastrar', async (req, res) => {
   const { email, username, password } = req.body;
   if (!email || !username || !password) {
@@ -73,29 +72,28 @@ app.post('/api/cadastrar', async (req, res) => {
   }
 
   try {
-    // Verifica se o email já existe
-    const { data: existingUser, error: checkError } = await supabase
+    // Verifica se já existe
+    const { data: existing, error: checkErr } = await supabase
       .from('users')
       .select('email')
       .eq('email', email)
-      .maybeSingle();
+      .single();
 
-    if (checkError) throw checkError;
-    if (existingUser) {
+    if (!checkErr && existing) {
       return res.status(400).json({ error: 'Email já cadastrado. Faça login.' });
     }
 
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const { data: newUser, error: insertError } = await supabase
+    const { error: insertErr } = await supabase
       .from('users')
-      .insert([
-        { email, username, password, code, confirmed: false }
-      ])
-      .select()
-      .maybeSingle();
+      .insert([{ email, username, password, code, confirmed: false }]);
 
-    if (insertError) throw insertError;
+    if (insertErr) {
+      console.error('Erro ao inserir usuário:', insertErr);
+      return res.status(500).json({ error: 'Erro ao salvar usuário.' });
+    }
 
+    // Tenta enviar e-mail
     try {
       await transporter.sendMail({
         from: process.env.EMAIL_USER,
@@ -105,16 +103,17 @@ app.post('/api/cadastrar', async (req, res) => {
       });
       res.json({ message: 'Código enviado.', email });
     } catch (emailErr) {
-      console.error('Erro no email:', emailErr.message);
+      console.error('Erro no e-mail:', emailErr.message);
+      // Mesmo sem e-mail, permite confirmar (para testes)
       res.json({ message: 'Usuário criado. Código: ' + code, email });
     }
   } catch (err) {
-    console.error('Erro no cadastro:', err.message);
+    console.error('Erro no cadastro:', err);
     res.status(500).json({ error: 'Erro interno no servidor.' });
   }
 });
 
-// API: Confirmar
+// === CONFIRMAR ===
 app.post('/api/confirmar', async (req, res) => {
   const { email, code } = req.body;
   if (!email || !code) {
@@ -122,34 +121,33 @@ app.post('/api/confirmar', async (req, res) => {
   }
 
   try {
-    const { data: user, error: selectError } = await supabase
+    const { data: user, error: selectErr } = await supabase
       .from('users')
       .select('*')
       .eq('email', email)
       .eq('code', code)
       .eq('confirmed', false)
-      .maybeSingle();
+      .single();
 
-    if (selectError) throw selectError;
-    if (!user) {
+    if (selectErr || !user) {
       return res.status(400).json({ error: 'Código inválido ou já usado.' });
     }
 
-    const { error: updateError } = await supabase
+    const { error: updateErr } = await supabase
       .from('users')
       .update({ confirmed: true, code: null })
       .eq('email', email);
 
-    if (updateError) throw updateError;
+    if (updateErr) throw updateErr;
 
     res.json({ message: 'Conta confirmada!', username: user.username });
   } catch (err) {
-    console.error('Erro na confirmação:', err.message);
+    console.error('Erro na confirmação:', err);
     res.status(500).json({ error: 'Erro ao confirmar conta.' });
   }
 });
 
-// API: Login
+// === LOGIN ===
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
@@ -157,27 +155,26 @@ app.post('/api/login', async (req, res) => {
   }
 
   try {
-    const { data: user, error: selectError } = await supabase
+    const { data: user, error: selectErr } = await supabase
       .from('users')
       .select('*')
       .eq('email', email)
       .eq('password', password)
       .eq('confirmed', true)
-      .maybeSingle();
+      .single();
 
-    if (selectError) throw selectError;
-    if (!user) {
+    if (selectErr || !user) {
       return res.status(400).json({ error: 'Email não cadastrado ou senha incorreta.' });
     }
 
     res.json({ message: 'Login bem-sucedido!', username: user.username });
   } catch (err) {
-    console.error('Erro no login:', err.message);
+    console.error('Erro no login:', err);
     res.status(500).json({ error: 'Erro interno.' });
   }
 });
 
-// API: Notícias
+// === NOTÍCIAS ===
 const upload = multer({ dest: UPLOADS_DIR });
 
 app.post('/api/news/upload', upload.single('image'), async (req, res) => {
@@ -192,33 +189,30 @@ app.post('/api/news/upload', upload.single('image'), async (req, res) => {
   try {
     const id = Date.now().toString();
     const date = new Date().toISOString().split('T')[0];
-    const { error: insertError } = await supabase
+    const { error: insertErr } = await supabase
       .from('news')
-      .insert([
-        { id, email, title, description: description || '', image_url: req.file.filename, date }
-      ]);
+      .insert([{ id, email, title, description: description || '', image_url: req.file.filename, date }]);
 
-    if (insertError) throw insertError;
+    if (insertErr) throw insertErr;
 
     res.json({ message: 'Notícia publicada!' });
   } catch (err) {
-    console.error('Erro ao publicar notícia:', err.message);
+    console.error('Erro ao publicar notícia:', err);
     res.status(500).json({ error: 'Erro ao salvar notícia.' });
   }
 });
 
 app.get('/api/news', async (req, res) => {
   try {
-    const { data: news, error } = await supabase
+    const { data, error } = await supabase
       .from('news')
       .select('*')
       .order('date', { ascending: false });
 
     if (error) throw error;
-
-    res.json(news);
+    res.json(data);
   } catch (err) {
-    console.error('Erro ao carregar notícias:', err.message);
+    console.error('Erro ao carregar notícias:', err);
     res.status(500).json({ error: 'Erro ao carregar notícias.' });
   }
 });
@@ -236,10 +230,9 @@ app.delete('/api/news/:id', async (req, res) => {
       .eq('id', req.params.id);
 
     if (error) throw error;
-
     res.json({ message: 'Notícia apagada.' });
   } catch (err) {
-    console.error('Erro ao apagar notícia:', err.message);
+    console.error('Erro ao apagar notícia:', err);
     res.status(500).json({ error: 'Erro ao apagar notícia.' });
   }
 });
