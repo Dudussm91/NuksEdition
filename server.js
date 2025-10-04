@@ -1,4 +1,4 @@
-// server.js — FUNCIONANDO NO RENDER COM PERSISTENT DISK
+// server.js — CORRIGIDO PARA RENDER + PERSISTENT DISK
 const express = require('express');
 const nodemailer = require('nodemailer');
 const multer = require('multer');
@@ -7,19 +7,19 @@ const path = require('path');
 const cors = require('cors');
 
 const app = express();
-const PORT = process.env.PORT || 10000; // Render usa 10000 por padrão
+const PORT = process.env.PORT || 10000; // Render usa 10000
 
 app.use(cors());
 app.use(express.json());
 
-// Pasta de uploads (não persistente, mas ok)
+// Pasta de uploads
 const UPLOADS_DIR = path.join(__dirname, 'public', 'uploads');
 if (!require('fs').existsSync(UPLOADS_DIR)) {
   require('fs').mkdirSync(UPLOADS_DIR, { recursive: true });
 }
 app.use('/uploads', express.static(UPLOADS_DIR));
 
-// Pasta PERSISTENTE para dados (funciona no Render)
+// Pasta PERSISTENTE (funciona no Render)
 const DATA_DIR = process.env.RENDER 
   ? '/opt/render/project/src/data' 
   : __dirname;
@@ -41,7 +41,6 @@ app.get('/home', (req, res) => res.sendFile(path.join(__dirname, 'public', 'home
 app.get('/explorar', (req, res) => res.sendFile(path.join(__dirname, 'public', 'explorar.html')));
 app.get('/noticias', (req, res) => res.sendFile(path.join(__dirname, 'public', 'noticias.html')));
 
-// Bloquear acesso direto a .html
 app.get(/\.html$/, (req, res) => {
   res.status(404).send(`
     <html>
@@ -96,7 +95,7 @@ const ADMINS = [
   'eduardomarangoni36@gmail.com'
 ];
 
-// === API: CADASTRAR ===
+// === CADASTRO ===
 app.post('/api/cadastrar', async (req, res) => {
   const { email, username, password } = req.body;
   if (!email || !username || !password) {
@@ -135,7 +134,7 @@ app.post('/api/cadastrar', async (req, res) => {
   }
 });
 
-// === API: CONFIRMAR ===
+// === CONFIRMAR ===
 app.post('/api/confirmar', async (req, res) => {
   const { email, code } = req.body;
   if (!email || !code) {
@@ -160,7 +159,7 @@ app.post('/api/confirmar', async (req, res) => {
   }
 });
 
-// === API: LOGIN ===
+// === LOGIN ===
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
@@ -180,9 +179,8 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// === API: NOTÍCIAS ===
+// === NOTÍCIAS ===
 const upload = multer({ dest: UPLOADS_DIR });
-
 app.post('/api/news/upload', upload.single('image'), async (req, res) => {
   const { email, title, description } = req.body;
   if (!ADMINS.includes(email)) {
@@ -237,7 +235,6 @@ app.delete('/api/news/:id', async (req, res) => {
   }
 });
 
-// 404 geral
 app.use((req, res) => {
   res.status(404).send('Página não encontrada');
 });
