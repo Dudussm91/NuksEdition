@@ -28,16 +28,14 @@
             Já tem uma conta? <a href="/login">faça login</a>
         </div>
     </div>
-
     <script>
         document.querySelector('button').addEventListener('click', async () => {
             const email = document.querySelector('input[type="email"]').value;
             const username = document.querySelector('input[type="text"]').value;
             const password = document.querySelector('input[type="password"]').value;
             if (!email || !username || !password) return alert('Preencha todos os campos.');
-
             try {
-                const res = await fetch('http://localhost:3000/api/cadastrar', {
+                const res = await fetch('/api/cadastrar', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email, username, password })
