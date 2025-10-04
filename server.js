@@ -1,4 +1,3 @@
-// server.js — CORRIGIDO PARA RENDER + PERSISTENT DISK
 const express = require('express');
 const nodemailer = require('nodemailer');
 const multer = require('multer');
@@ -7,19 +6,13 @@ const path = require('path');
 const cors = require('cors');
 
 const app = express();
-const PORT = process.env.PORT || 10000; // Render usa 10000
+const PORT = process.env.PORT || 10000; // Render exige 10000
 
 app.use(cors());
 app.use(express.json());
 
-// Pasta de uploads
+// Pastas
 const UPLOADS_DIR = path.join(__dirname, 'public', 'uploads');
-if (!require('fs').existsSync(UPLOADS_DIR)) {
-  require('fs').mkdirSync(UPLOADS_DIR, { recursive: true });
-}
-app.use('/uploads', express.static(UPLOADS_DIR));
-
-// Pasta PERSISTENTE (funciona no Render)
 const DATA_DIR = process.env.RENDER 
   ? '/opt/render/project/src/data' 
   : __dirname;
@@ -27,10 +20,15 @@ const DATA_DIR = process.env.RENDER
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const NEWS_FILE = path.join(DATA_DIR, 'news.json');
 
-// Criar pasta de dados se não existir
+// Criar pastas
+if (!require('fs').existsSync(UPLOADS_DIR)) {
+  require('fs').mkdirSync(UPLOADS_DIR, { recursive: true });
+}
 if (!require('fs').existsSync(DATA_DIR)) {
   require('fs').mkdirSync(DATA_DIR, { recursive: true });
 }
+
+app.use('/uploads', express.static(UPLOADS_DIR));
 
 // Rotas HTML
 app.get('/', (req, res) => res.redirect('/login'));
@@ -54,12 +52,12 @@ app.get(/\.html$/, (req, res) => {
   `);
 });
 
-// Funções de leitura/escrita
+// Leitura/escrita
 async function readUsers() {
   try {
     const data = await fs.readFile(USERS_FILE, 'utf8');
     return JSON.parse(data);
-  } catch (err) {
+  } catch {
     return [];
   }
 }
@@ -72,7 +70,7 @@ async function readNews() {
   try {
     const data = await fs.readFile(NEWS_FILE, 'utf8');
     return JSON.parse(data);
-  } catch (err) {
+  } catch {
     return [];
   }
 }
@@ -90,12 +88,9 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-const ADMINS = [
-  'nukseditionofc@gmail.com',
-  'eduardomarangoni36@gmail.com'
-];
+const ADMINS = ['nukseditionofc@gmail.com', 'eduardomarangoni36@gmail.com'];
 
-// === CADASTRO ===
+// CADASTRO
 app.post('/api/cadastrar', async (req, res) => {
   const { email, username, password } = req.body;
   if (!email || !username || !password) {
@@ -105,81 +100,65 @@ app.post('/api/cadastrar', async (req, res) => {
     return res.status(400).json({ error: 'Senha deve ter pelo menos 6 caracteres.' });
   }
 
+  const users = await readUsers();
+  if (users.some(u => u.email === email)) {
+    return res.status(400).json({ error: 'Email já cadastrado. Faça login.' });
+  }
+
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  users.push({ email, username, password, code, confirmed: false });
+  await saveUsers(users);
+
   try {
-    const users = await readUsers();
-    if (users.some(u => u.email === email)) {
-      return res.status(400).json({ error: 'Email já cadastrado. Faça login.' });
-    }
-
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    users.push({ email, username, password, code, confirmed: false });
-    await saveUsers(users);
-
-    try {
-      await transporter.sendMail({
-        from: process.env.EMAIL_USER,
-        to: email,
-        subject: 'Código de Confirmação - NuksEdition',
-        text: `Seu código: ${code}`
-      });
-      res.json({ message: 'Código enviado.', email });
-    } catch (emailErr) {
-      console.error('Erro no email:', emailErr.message);
-      // Mesmo sem e-mail, permite confirmar
-      res.json({ message: 'Usuário criado. Código: ' + code, email });
-    }
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: 'Código de Confirmação - NuksEdition',
+      text: `Seu código: ${code}`
+    });
+    res.json({ message: 'Código enviado.', email });
   } catch (err) {
-    console.error('Erro ao salvar usuário:', err);
-    res.status(500).json({ error: 'Erro ao salvar usuário.' });
+    console.error('Erro no email:', err.message);
+    // Mesmo sem e-mail, permite confirmar
+    res.json({ message: 'Usuário criado. Código: ' + code, email });
   }
 });
 
-// === CONFIRMAR ===
+// CONFIRMAR
 app.post('/api/confirmar', async (req, res) => {
   const { email, code } = req.body;
   if (!email || !code) {
     return res.status(400).json({ error: 'Email e código são obrigatórios.' });
   }
 
-  try {
-    const users = await readUsers();
-    const userIndex = users.findIndex(u => u.email === email && u.code === code && !u.confirmed);
-    if (userIndex === -1) {
-      return res.status(400).json({ error: 'Código inválido ou já usado.' });
-    }
-
-    users[userIndex].confirmed = true;
-    delete users[userIndex].code;
-    await saveUsers(users);
-
-    res.json({ message: 'Conta confirmada!', username: users[userIndex].username });
-  } catch (err) {
-    console.error('Erro na confirmação:', err);
-    res.status(500).json({ error: 'Erro ao confirmar conta.' });
+  const users = await readUsers();
+  const userIndex = users.findIndex(u => u.email === email && u.code === code && !u.confirmed);
+  if (userIndex === -1) {
+    return res.status(400).json({ error: 'Código inválido ou já usado.' });
   }
+
+  users[userIndex].confirmed = true;
+  delete users[userIndex].code;
+  await saveUsers(users);
+  res.json({ message: 'Conta confirmada!', username: users[userIndex].username });
 });
 
-// === LOGIN ===
+// LOGIN
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
     return res.status(400).json({ error: 'Preencha todos os campos.' });
   }
 
-  try {
-    const users = await readUsers();
-    const user = users.find(u => u.email === email && u.password === password && u.confirmed);
-    if (!user) {
-      return res.status(400).json({ error: 'Email não cadastrado ou senha incorreta.' });
-    }
-    res.json({ message: 'Login bem-sucedido!', username: user.username });
-  } catch (err) {
-    console.error('Erro no login:', err);
-    res.status(500).json({ error: 'Erro interno.' });
+  const users = await readUsers();
+  const user = users.find(u => u.email === email && u.password === password && u.confirmed);
+  if (!user) {
+    return res.status(400).json({ error: 'Email não cadastrado ou senha incorreta.' });
   }
+  res.json({ message: 'Login bem-sucedido!', username: user.username });
 });
 
-// === NOTÍCIAS ===
+// NOTÍCIAS
 const upload = multer({ dest: UPLOADS_DIR });
 app.post('/api/news/upload', upload.single('image'), async (req, res) => {
   const { email, title, description } = req.body;
@@ -190,32 +169,22 @@ app.post('/api/news/upload', upload.single('image'), async (req, res) => {
     return res.status(400).json({ error: 'Título e imagem obrigatórios.' });
   }
 
-  try {
-    const news = await readNews();
-    news.unshift({
-      id: Date.now().toString(),
-      email,
-      title,
-      description: description || '',
-      imageUrl: req.file.filename,
-      date: new Date().toISOString().split('T')[0]
-    });
-    await saveNews(news);
-    res.json({ message: 'Notícia publicada!' });
-  } catch (err) {
-    console.error('Erro ao salvar notícia:', err);
-    res.status(500).json({ error: 'Erro ao salvar notícia.' });
-  }
+  const news = await readNews();
+  news.unshift({
+    id: Date.now().toString(),
+    email,
+    title,
+    description: description || '',
+    imageUrl: req.file.filename,
+    date: new Date().toISOString().split('T')[0]
+  });
+  await saveNews(news);
+  res.json({ message: 'Notícia publicada!' });
 });
 
 app.get('/api/news', async (req, res) => {
-  try {
-    const news = await readNews();
-    res.json(news);
-  } catch (err) {
-    console.error('Erro ao carregar notícias:', err);
-    res.status(500).json({ error: 'Erro ao carregar notícias.' });
-  }
+  const news = await readNews();
+  res.json(news);
 });
 
 app.delete('/api/news/:id', async (req, res) => {
@@ -223,23 +192,17 @@ app.delete('/api/news/:id', async (req, res) => {
   if (!ADMINS.includes(email)) {
     return res.status(403).json({ error: 'Apenas administradores.' });
   }
-
-  try {
-    const news = await readNews();
-    const filtered = news.filter(n => n.id !== req.params.id);
-    await saveNews(filtered);
-    res.json({ message: 'Notícia apagada.' });
-  } catch (err) {
-    console.error('Erro ao apagar notícia:', err);
-    res.status(500).json({ error: 'Erro ao apagar notícia.' });
-  }
+  const news = await readNews();
+  const filtered = news.filter(n => n.id !== req.params.id);
+  await saveNews(filtered);
+  res.json({ message: 'Notícia apagada.' });
 });
 
 app.use((req, res) => {
   res.status(404).send('Página não encontrada');
 });
 
-// ✅ OBRIGATÓRIO: bind em 0.0.0.0 e porta 10000
+// ✅ OBRIGATÓRIO PARA RENDER
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Servidor rodando na porta ${PORT}`);
 });
