@@ -1,10 +1,11 @@
-// server.js
+// server.js — PRONTO PARA RENDER + POSTGRESQL
 const express = require('express');
 const nodemailer = require('nodemailer');
 const multer = require('multer');
-const fs = require('fs').promises;
+const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
+const { Client } = require('pg');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -12,197 +13,208 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Servir uploads
-app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
-
-// Rotas limpas
-app.get('/', (req, res) => {
-    res.redirect('/login');
-});
-
-app.get('/login', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'login.html'));
-});
-
-app.get('/cadastrar', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'cadastrar.html'));
-});
-
-app.get('/confirmar', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'confirmar.html'));
-});
-
-app.get('/home', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'home.html'));
-});
-
-app.get('/explorar', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'explorar.html'));
-});
-
-app.get('/noticias', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'noticias.html'));
-});
-
-// ✅ CORRETO: bloqueia .html com REGEX (sem erro de path-to-regexp)
-app.get(/\.html$/, (req, res) => {
-    res.status(404).send(`
-        <html>
-        <head><title>404 - Página não encontrada</title></head>
-        <body style="font-family: Arial; text-align: center; padding: 50px; background: #f9f9f9;">
-            <h1>❌ Página não encontrada</h1>
-            <p>A URL que você tentou acessar não existe.</p>
-            <p><a href="/login" style="color: gray; text-decoration: none; font-weight: bold;">← Voltar para o login</a></p>
-        </body>
-        </html>
-    `);
-});
-
-// Arquivos de dados
-const USERS_FILE = path.join(__dirname, 'users.json');
-const NEWS_FILE = path.join(__dirname, 'news.json');
+// Pasta de uploads
 const UPLOADS_DIR = path.join(__dirname, 'public', 'uploads');
-
-if (!require('fs').existsSync(UPLOADS_DIR)) {
-    require('fs').mkdirSync(UPLOADS_DIR, { recursive: true });
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }
+app.use('/uploads', express.static(UPLOADS_DIR));
 
-async function readUsers() {
-    try {
-        const data = await fs.readFile(USERS_FILE, 'utf8');
-        return JSON.parse(data);
-    } catch (err) {
-        return [];
-    }
-}
+// Conexão com PostgreSQL
+const client = new Client({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+});
 
-async function saveUsers(users) {
-    await fs.writeFile(USERS_FILE, JSON.stringify(users, null, 2));
-}
+client.connect()
+  .then(() => console.log('✅ Conectado ao PostgreSQL'))
+  .catch(err => {
+    console.error('❌ Erro ao conectar ao banco:', err);
+    process.exit(1);
+  });
 
-async function readNews() {
-    try {
-        const data = await fs.readFile(NEWS_FILE, 'utf8');
-        return JSON.parse(data);
-    } catch (err) {
-        return [];
-    }
-}
+// Rotas HTML
+app.get('/', (req, res) => res.redirect('/login'));
+app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
+app.get('/cadastrar', (req, res) => res.sendFile(path.join(__dirname, 'public', 'cadastrar.html')));
+app.get('/confirmar', (req, res) => res.sendFile(path.join(__dirname, 'public', 'confirmar.html')));
+app.get('/home', (req, res) => res.sendFile(path.join(__dirname, 'public', 'home.html')));
+app.get('/explorar', (req, res) => res.sendFile(path.join(__dirname, 'public', 'explorar.html')));
+app.get('/noticias', (req, res) => res.sendFile(path.join(__dirname, 'public', 'noticias.html')));
 
-async function saveNews(news) {
-    await fs.writeFile(NEWS_FILE, JSON.stringify(news, null, 2));
-}
+// Bloquear acesso direto a .html
+app.get(/\.html$/, (req, res) => {
+  res.status(404).send(`
+    <html>
+    <head><title>404 - Página não encontrada</title></head>
+    <body style="font-family: Arial; text-align: center; padding: 50px; background: #f9f9f9;">
+        <h1>❌ Página não encontrada</h1>
+        <p>A URL que você tentou acessar não existe.</p>
+        <p><a href="/login" style="color: gray; text-decoration: none; font-weight: bold;">← Voltar para o login</a></p>
+    </body>
+    </html>
+  `);
+});
 
-// ✅ Nodemailer com variáveis de ambiente (Render)
+// Nodemailer
 const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_APP_PASS
-    }
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_APP_PASS
+  }
 });
 
 const ADMINS = [
-    'nukseditionofc@gmail.com',
-    'eduardomarangoni36@gmail.com'
+  'nukseditionofc@gmail.com',
+  'eduardomarangoni36@gmail.com'
 ];
 
-// API: Cadastro
+// === API: CADASTRAR ===
 app.post('/api/cadastrar', async (req, res) => {
-    const { email, username, password } = req.body;
-    if (password.length < 6) {
-        return res.status(400).json({ error: 'Senha deve ter pelo menos 6 caracteres.' });
+  const { email, username, password } = req.body;
+  if (!email || !username || !password) {
+    return res.status(400).json({ error: 'Preencha todos os campos.' });
+  }
+  if (password.length < 6) {
+    return res.status(400).json({ error: 'Senha deve ter pelo menos 6 caracteres.' });
+  }
+
+  try {
+    const check = await client.query('SELECT email FROM users WHERE email = $1', [email]);
+    if (check.rows.length > 0) {
+      return res.status(400).json({ error: 'Email já cadastrado. Faça login.' });
     }
-    const users = await readUsers();
-    if (users.some(u => u.email === email)) {
-        return res.status(400).json({ error: 'Email já cadastrado. Faça login.' });
-    }
+
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    users.push({ email, username, password, code, confirmed: false });
-    await saveUsers(users);
-    try {
-        await transporter.sendMail({
-            from: process.env.EMAIL_USER,
-            to: email,
-            subject: 'Código de Confirmação - NuksEdition',
-            text: `Seu código: ${code}`
-        });
-        res.json({ message: 'Código enviado.', email });
-    } catch (err) {
-        console.error('Erro no email:', err.message);
-        res.status(500).json({ error: 'Erro ao enviar email.' });
-    }
-});
+    await client.query(
+      `INSERT INTO users (email, username, password, confirmation_code, confirmed)
+       VALUES ($1, $2, $3, $4, false)`,
+      [email, username, password, code]
+    );
 
-// API: Confirmar
-app.post('/api/confirmar', async (req, res) => {
-    const { email, code } = req.body;
-    const users = await readUsers();
-    const userIndex = users.findIndex(u => u.email === email && u.code === code);
-    if (userIndex === -1) {
-        return res.status(400).json({ error: 'Código inválido.' });
-    }
-    users[userIndex].confirmed = true;
-    delete users[userIndex].code;
-    await saveUsers(users);
-    res.json({ message: 'Conta confirmada!', username: users[userIndex].username });
-});
-
-// API: Login
-app.post('/api/login', async (req, res) => {
-    const { email, password } = req.body;
-    const users = await readUsers();
-    const user = users.find(u => u.email === email && u.password === password && u.confirmed);
-    if (!user) {
-        return res.status(400).json({ error: 'Email não cadastrado ou senha incorreta.' });
-    }
-    res.json({ message: 'Login bem-sucedido!', username: user.username });
-});
-
-// API: Notícias
-const upload = multer({ dest: UPLOADS_DIR });
-app.post('/api/news/upload', upload.single('image'), async (req, res) => {
-    const { email, title, description } = req.body;
-    if (!ADMINS.includes(email)) {
-        return res.status(403).json({ error: 'Apenas administradores.' });
-    }
-    if (!title || !req.file) {
-        return res.status(400).json({ error: 'Título e imagem obrigatórios.' });
-    }
-    const news = await readNews();
-    news.unshift({
-        id: Date.now().toString(),
-        email,
-        title,
-        description: description || '',
-        imageUrl: req.file.filename,
-        date: new Date().toISOString().split('T')[0]
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: 'Código de Confirmação - NuksEdition',
+      text: `Seu código: ${code}`
     });
-    await saveNews(news);
+
+    res.json({ message: 'Código enviado.', email });
+  } catch (err) {
+    console.error('Erro no cadastro:', err);
+    res.status(500).json({ error: 'Erro interno no servidor.' });
+  }
+});
+
+// === API: CONFIRMAR ===
+app.post('/api/confirmar', async (req, res) => {
+  const { email, code } = req.body;
+  if (!email || !code) {
+    return res.status(400).json({ error: 'Email e código são obrigatórios.' });
+  }
+
+  try {
+    const result = await client.query(
+      'SELECT * FROM users WHERE email = $1 AND confirmation_code = $2',
+      [email, code]
+    );
+    if (result.rows.length === 0) {
+      return res.status(400).json({ error: 'Código inválido.' });
+    }
+
+    await client.query(
+      'UPDATE users SET confirmed = true, confirmation_code = NULL WHERE email = $1',
+      [email]
+    );
+
+    res.json({ message: 'Conta confirmada!', username: result.rows[0].username });
+  } catch (err) {
+    console.error('Erro na confirmação:', err);
+    res.status(500).json({ error: 'Erro ao confirmar conta.' });
+  }
+});
+
+// === API: LOGIN ===
+app.post('/api/login', async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Preencha todos os campos.' });
+  }
+
+  try {
+    const result = await client.query(
+      'SELECT * FROM users WHERE email = $1 AND password = $2 AND confirmed = true',
+      [email, password]
+    );
+    if (result.rows.length === 0) {
+      return res.status(400).json({ error: 'Email não cadastrado ou senha incorreta.' });
+    }
+
+    res.json({ message: 'Login bem-sucedido!', username: result.rows[0].username });
+  } catch (err) {
+    console.error('Erro no login:', err);
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
+// === API: NOTÍCIAS ===
+const upload = multer({ dest: UPLOADS_DIR });
+
+app.post('/api/news/upload', upload.single('image'), async (req, res) => {
+  const { email, title, description } = req.body;
+  if (!ADMINS.includes(email)) {
+    return res.status(403).json({ error: 'Apenas administradores.' });
+  }
+  if (!title || !req.file) {
+    return res.status(400).json({ error: 'Título e imagem obrigatórios.' });
+  }
+
+  try {
+    const id = Date.now().toString();
+    const date = new Date().toISOString().split('T')[0];
+    await client.query(
+      `INSERT INTO news (id, email, title, description, image_url, date)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [id, email, title, description || '', req.file.filename, date]
+    );
     res.json({ message: 'Notícia publicada!' });
+  } catch (err) {
+    console.error('Erro ao publicar notícia:', err);
+    res.status(500).json({ error: 'Erro ao salvar notícia.' });
+  }
 });
 
 app.get('/api/news', async (req, res) => {
-    const news = await readNews();
-    res.json(news);
+  try {
+    const result = await client.query('SELECT * FROM news ORDER BY date DESC');
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Erro ao carregar notícias:', err);
+    res.status(500).json({ error: 'Erro ao carregar notícias.' });
+  }
 });
 
 app.delete('/api/news/:id', async (req, res) => {
-    const { email } = req.query;
-    if (!ADMINS.includes(email)) {
-        return res.status(403).json({ error: 'Apenas administradores.' });
-    }
-    const news = await readNews();
-    const filtered = news.filter(n => n.id !== req.params.id);
-    await saveNews(filtered);
+  const { email } = req.query;
+  if (!ADMINS.includes(email)) {
+    return res.status(403).json({ error: 'Apenas administradores.' });
+  }
+
+  try {
+    await client.query('DELETE FROM news WHERE id = $1', [req.params.id]);
     res.json({ message: 'Notícia apagada.' });
+  } catch (err) {
+    console.error('Erro ao apagar notícia:', err);
+    res.status(500).json({ error: 'Erro ao apagar notícia.' });
+  }
 });
 
 // 404 geral
 app.use((req, res) => {
-    res.status(404).send('Página não encontrada');
+  res.status(404).send('Página não encontrada');
 });
 
 app.listen(PORT, () => {
-    console.log(`✅ Servidor rodando na porta ${PORT}`);
+  console.log(`✅ Servidor rodando na porta ${PORT}`);
 });
