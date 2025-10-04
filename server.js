@@ -1,11 +1,10 @@
-// server.js — COM CRIAÇÃO AUTOMÁTICA DE TABELAS
+// server.js — COM SUPORTE A DISCO PERSISTENTE NO RENDER
 const express = require('express');
 const nodemailer = require('nodemailer');
 const multer = require('multer');
-const fs = require('fs');
+const fs = require('fs').promises;
 const path = require('path');
 const cors = require('cors');
-const { Client } = require('pg');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -13,54 +12,25 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Pasta de uploads
+// Pasta persistente para dados (funciona no Render com Persistent Disk)
+const DATA_DIR = process.env.RENDER
+  ? '/opt/render/project/src/data'
+  : __dirname;
+
+const USERS_FILE = path.join(DATA_DIR, 'users.json');
+const NEWS_FILE = path.join(DATA_DIR, 'news.json');
 const UPLOADS_DIR = path.join(__dirname, 'public', 'uploads');
-if (!fs.existsSync(UPLOADS_DIR)) {
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+
+// Criar pastas se não existirem
+if (!require('fs').existsSync(UPLOADS_DIR)) {
+  require('fs').mkdirSync(UPLOADS_DIR, { recursive: true });
 }
+if (!require('fs').existsSync(DATA_DIR)) {
+  require('fs').mkdirSync(DATA_DIR, { recursive: true });
+}
+
+// Servir uploads
 app.use('/uploads', express.static(UPLOADS_DIR));
-
-// Conexão com PostgreSQL
-const client = new Client({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-});
-
-// Função para criar tabelas
-async function createTables() {
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS users (
-      id SERIAL PRIMARY KEY,
-      email TEXT UNIQUE NOT NULL,
-      username TEXT NOT NULL,
-      password TEXT NOT NULL,
-      confirmed BOOLEAN DEFAULT false,
-      confirmation_code TEXT
-    );
-  `);
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS news (
-      id TEXT PRIMARY KEY,
-      email TEXT NOT NULL,
-      title TEXT NOT NULL,
-      description TEXT,
-      image_url TEXT NOT NULL,
-      date TEXT NOT NULL
-    );
-  `);
-  console.log('✅ Tabelas verificadas/criadas');
-}
-
-// Conectar e criar tabelas
-client.connect()
-  .then(() => {
-    console.log('✅ Conectado ao PostgreSQL');
-    return createTables();
-  })
-  .catch(err => {
-    console.error('❌ Erro ao conectar ou criar tabelas:', err);
-    process.exit(1);
-  });
 
 // Rotas HTML
 app.get('/', (req, res) => res.redirect('/login'));
@@ -85,6 +55,33 @@ app.get(/\.html$/, (req, res) => {
   `);
 });
 
+// Funções de leitura/escrita
+async function readUsers() {
+  try {
+    const data = await fs.readFile(USERS_FILE, 'utf8');
+    return JSON.parse(data);
+  } catch (err) {
+    return [];
+  }
+}
+
+async function saveUsers(users) {
+  await fs.writeFile(USERS_FILE, JSON.stringify(users, null, 2));
+}
+
+async function readNews() {
+  try {
+    const data = await fs.readFile(NEWS_FILE, 'utf8');
+    return JSON.parse(data);
+  } catch (err) {
+    return [];
+  }
+}
+
+async function saveNews(news) {
+  await fs.writeFile(NEWS_FILE, JSON.stringify(news, null, 2));
+}
+
 // Nodemailer
 const transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -99,7 +96,7 @@ const ADMINS = [
   'eduardomarangoni36@gmail.com'
 ];
 
-// === API: CADASTRAR ===
+// API: Cadastro
 app.post('/api/cadastrar', async (req, res) => {
   const { email, username, password } = req.body;
   if (!email || !username || !password) {
@@ -109,85 +106,57 @@ app.post('/api/cadastrar', async (req, res) => {
     return res.status(400).json({ error: 'Senha deve ter pelo menos 6 caracteres.' });
   }
 
+  const users = await readUsers();
+  if (users.some(u => u.email === email)) {
+    return res.status(400).json({ error: 'Email já cadastrado. Faça login.' });
+  }
+
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  users.push({ email, username, password, code, confirmed: false });
+  await saveUsers(users);
+
   try {
-    const check = await client.query('SELECT email FROM users WHERE email = $1', [email]);
-    if (check.rows.length > 0) {
-      return res.status(400).json({ error: 'Email já cadastrado. Faça login.' });
-    }
-
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    await client.query(
-      `INSERT INTO users (email, username, password, confirmation_code, confirmed)
-       VALUES ($1, $2, $3, $4, false)`,
-      [email, username, password, code]
-    );
-
     await transporter.sendMail({
       from: process.env.EMAIL_USER,
       to: email,
       subject: 'Código de Confirmação - NuksEdition',
       text: `Seu código: ${code}`
     });
-
     res.json({ message: 'Código enviado.', email });
   } catch (err) {
-    console.error('Erro no cadastro:', err);
-    res.status(500).json({ error: 'Erro interno no servidor.' });
+    console.error('Erro no email:', err.message);
+    // Mesmo com erro de email, o usuário foi salvo — permitir confirmação manual
+    res.json({ message: 'Usuário criado. Código: ' + code, email });
   }
 });
 
-// === API: CONFIRMAR ===
+// API: Confirmar
 app.post('/api/confirmar', async (req, res) => {
   const { email, code } = req.body;
-  if (!email || !code) {
-    return res.status(400).json({ error: 'Email e código são obrigatórios.' });
+  const users = await readUsers();
+  const user = users.find(u => u.email === email && u.code === code && !u.confirmed);
+  if (!user) {
+    return res.status(400).json({ error: 'Código inválido ou já usado.' });
   }
 
-  try {
-    const result = await client.query(
-      'SELECT * FROM users WHERE email = $1 AND confirmation_code = $2',
-      [email, code]
-    );
-    if (result.rows.length === 0) {
-      return res.status(400).json({ error: 'Código inválido.' });
-    }
-
-    await client.query(
-      'UPDATE users SET confirmed = true, confirmation_code = NULL WHERE email = $1',
-      [email]
-    );
-
-    res.json({ message: 'Conta confirmada!', username: result.rows[0].username });
-  } catch (err) {
-    console.error('Erro na confirmação:', err);
-    res.status(500).json({ error: 'Erro ao confirmar conta.' });
-  }
+  user.confirmed = true;
+  delete user.code;
+  await saveUsers(users);
+  res.json({ message: 'Conta confirmada!', username: user.username });
 });
 
-// === API: LOGIN ===
+// API: Login
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ error: 'Preencha todos os campos.' });
+  const users = await readUsers();
+  const user = users.find(u => u.email === email && u.password === password && u.confirmed);
+  if (!user) {
+    return res.status(400).json({ error: 'Email não cadastrado ou senha incorreta.' });
   }
-
-  try {
-    const result = await client.query(
-      'SELECT * FROM users WHERE email = $1 AND password = $2 AND confirmed = true',
-      [email, password]
-    );
-    if (result.rows.length === 0) {
-      return res.status(400).json({ error: 'Email não cadastrado ou senha incorreta.' });
-    }
-
-    res.json({ message: 'Login bem-sucedido!', username: result.rows[0].username });
-  } catch (err) {
-    console.error('Erro no login:', err);
-    res.status(500).json({ error: 'Erro interno.' });
-  }
+  res.json({ message: 'Login bem-sucedido!', username: user.username });
 });
 
-// === API: NOTÍCIAS ===
+// API: Notícias
 const upload = multer({ dest: UPLOADS_DIR });
 
 app.post('/api/news/upload', upload.single('image'), async (req, res) => {
@@ -199,29 +168,22 @@ app.post('/api/news/upload', upload.single('image'), async (req, res) => {
     return res.status(400).json({ error: 'Título e imagem obrigatórios.' });
   }
 
-  try {
-    const id = Date.now().toString();
-    const date = new Date().toISOString().split('T')[0];
-    await client.query(
-      `INSERT INTO news (id, email, title, description, image_url, date)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [id, email, title, description || '', req.file.filename, date]
-    );
-    res.json({ message: 'Notícia publicada!' });
-  } catch (err) {
-    console.error('Erro ao publicar notícia:', err);
-    res.status(500).json({ error: 'Erro ao salvar notícia.' });
-  }
+  const news = await readNews();
+  news.unshift({
+    id: Date.now().toString(),
+    email,
+    title,
+    description: description || '',
+    imageUrl: req.file.filename,
+    date: new Date().toISOString().split('T')[0]
+  });
+  await saveNews(news);
+  res.json({ message: 'Notícia publicada!' });
 });
 
 app.get('/api/news', async (req, res) => {
-  try {
-    const result = await client.query('SELECT * FROM news ORDER BY date DESC');
-    res.json(result.rows);
-  } catch (err) {
-    console.error('Erro ao carregar notícias:', err);
-    res.status(500).json({ error: 'Erro ao carregar notícias.' });
-  }
+  const news = await readNews();
+  res.json(news);
 });
 
 app.delete('/api/news/:id', async (req, res) => {
@@ -229,14 +191,10 @@ app.delete('/api/news/:id', async (req, res) => {
   if (!ADMINS.includes(email)) {
     return res.status(403).json({ error: 'Apenas administradores.' });
   }
-
-  try {
-    await client.query('DELETE FROM news WHERE id = $1', [req.params.id]);
-    res.json({ message: 'Notícia apagada.' });
-  } catch (err) {
-    console.error('Erro ao apagar notícia:', err);
-    res.status(500).json({ error: 'Erro ao apagar notícia.' });
-  }
+  const news = await readNews();
+  const filtered = news.filter(n => n.id !== req.params.id);
+  await saveNews(filtered);
+  res.json({ message: 'Notícia apagada.' });
 });
 
 // 404 geral
@@ -244,6 +202,6 @@ app.use((req, res) => {
   res.status(404).send('Página não encontrada');
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Servidor rodando na porta ${PORT}`);
 });
