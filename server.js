@@ -92,7 +92,7 @@ const transporter = nodemailer.createTransport({
 
 const ADMINS = ['nukseditionofc@gmail.com', 'eduardomarangoni36@gmail.com'];
 
-// ✅ CADASTRO (CORRIGIDO)
+// ✅ CADASTRO — RÁPIDO e com reenvio para não confirmados
 app.post('/api/cadastrar', async (req, res) => {
   const { email, username, password } = req.body;
   if (!email || !username || !password) {
@@ -111,24 +111,20 @@ app.post('/api/cadastrar', async (req, res) => {
     if (existingUser.confirmed) {
       return res.status(400).json({ error: 'Email já cadastrado. Faça login.' });
     } else {
-      // Atualiza dados do usuário NÃO confirmado (permite reenvio)
+      // Atualiza usuário NÃO confirmado
       existingUser.username = username;
       existingUser.password = password;
       existingUser.code = code;
       existingUser.confirmed = false;
       await saveUsers(users);
 
-      // Reenvia o código
-      try {
-        await transporter.sendMail({
-          from: process.env.EMAIL_USER,
-          to: email,
-          subject: 'Novo Código de Confirmação - NuksEdition',
-          text: `Seu novo código: ${code}`
-        });
-      } catch (err) {
-        console.error('Erro ao reenviar e-mail:', err.message);
-      }
+      // Envia e-mail em segundo plano (não bloqueia)
+      transporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: 'Novo Código de Confirmação - NuksEdition',
+        text: `Seu novo código: ${code}`
+      }).catch(err => console.error('Falha ao reenviar e-mail:', err.message));
 
       return res.json({ message: 'Novo código enviado.', email });
     }
@@ -138,18 +134,16 @@ app.post('/api/cadastrar', async (req, res) => {
   users.push({ email, username, password, code, confirmed: false });
   await saveUsers(users);
 
-  try {
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: 'Código de Confirmação - NuksEdition',
-      text: `Seu código: ${code}`
-    });
-  } catch (err) {
-    console.error('Erro no envio de e-mail:', err.message);
-  }
-
+  // Responde IMEDIATAMENTE
   res.json({ message: 'Código enviado.', email });
+
+  // Envia e-mail em segundo plano
+  transporter.sendMail({
+    from: process.env.EMAIL_USER,
+    to: email,
+    subject: 'Código de Confirmação - NuksEdition',
+    text: `Seu código: ${code}`
+  }).catch(err => console.error('Falha ao enviar e-mail:', err.message));
 });
 
 // CONFIRMAR
@@ -240,4 +234,3 @@ app.use((req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Servidor rodando na porta ${PORT}`);
 });
-
