@@ -1,4 +1,4 @@
-// server.js — PRONTO PARA RENDER + POSTGRESQL
+// server.js — COM CRIAÇÃO AUTOMÁTICA DE TABELAS
 const express = require('express');
 const nodemailer = require('nodemailer');
 const multer = require('multer');
@@ -26,10 +26,39 @@ const client = new Client({
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
+// Função para criar tabelas
+async function createTables() {
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      username TEXT NOT NULL,
+      password TEXT NOT NULL,
+      confirmed BOOLEAN DEFAULT false,
+      confirmation_code TEXT
+    );
+  `);
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS news (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT,
+      image_url TEXT NOT NULL,
+      date TEXT NOT NULL
+    );
+  `);
+  console.log('✅ Tabelas verificadas/criadas');
+}
+
+// Conectar e criar tabelas
 client.connect()
-  .then(() => console.log('✅ Conectado ao PostgreSQL'))
+  .then(() => {
+    console.log('✅ Conectado ao PostgreSQL');
+    return createTables();
+  })
   .catch(err => {
-    console.error('❌ Erro ao conectar ao banco:', err);
+    console.error('❌ Erro ao conectar ou criar tabelas:', err);
     process.exit(1);
   });
 
