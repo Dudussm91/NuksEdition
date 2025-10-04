@@ -1,6 +1,5 @@
-// server.js — COM SESSÃO REAL (SEM sessionStorage)
+// server.js — SEM SUPABASE, SEM SESSIONSTORAGE, SÓ ARQUIVOS + EMAIL CORRETO
 const express = require('express');
-const session = require('express-session');
 const nodemailer = require('nodemailer');
 const multer = require('multer');
 const fs = require('fs').promises;
@@ -9,25 +8,8 @@ const cors = require('cors');
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// Middleware
-app.use(cors({
-  origin: true,
-  credentials: true
-}));
+app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Sessão (armazenada no servidor, cookie no navegador com ID da sessão)
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'nuksedition-secret-2025',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.RENDER ? true : false, // HTTPS no Render
-    httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000 // 24h
-  }
-}));
 
 // Pastas
 const UPLOADS_DIR = path.join(__dirname, 'public', 'uploads');
@@ -49,49 +31,20 @@ if (!fsSync.existsSync(DATA_DIR)) {
 
 app.use('/uploads', express.static(UPLOADS_DIR));
 
-// Middleware de autenticação
-function requireAuth(req, res, next) {
-  if (req.session.user) {
-    return next();
-  }
-  if (req.headers.accept && req.headers.accept.includes('text/html')) {
-    return res.redirect('/login');
-  }
-  return res.status(401).json({ error: 'Não autenticado.' });
-}
-
 // Rotas HTML
 app.get('/', (req, res) => res.redirect('/login'));
 app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
 app.get('/cadastrar', (req, res) => res.sendFile(path.join(__dirname, 'public', 'cadastrar.html')));
 app.get('/confirmar', (req, res) => res.sendFile(path.join(__dirname, 'public', 'confirmar.html')));
-
-app.get('/home', requireAuth, (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'home.html'));
-});
-
-app.get('/explorar', requireAuth, (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'explorar.html'));
-});
-
-app.get('/noticias', requireAuth, (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'noticia.html'));
-});
+app.get('/home', (req, res) => res.sendFile(path.join(__dirname, 'public', 'home.html')));
+app.get('/explorar', (req, res) => res.sendFile(path.join(__dirname, 'public', 'explorar.html')));
+app.get('/noticias', (req, res) => res.sendFile(path.join(__dirname, 'public', 'noticia.html')));
 
 app.get(/\.html$/, (req, res) => {
-  res.status(404).send(`
-    <html>
-    <head><title>404 - Página não encontrada</title></head>
-    <body style="font-family: Arial; text-align: center; padding: 50px; background: #f9f9f9;">
-        <h1>❌ Página não encontrada</h1>
-        <p>A URL que você tentou acessar não existe.</p>
-        <p><a href="/login" style="color: gray; text-decoration: none; font-weight: bold;">← Voltar para o login</a></p>
-    </body>
-    </html>
-  `);
+  res.status(404).send('Página não encontrada');
 });
 
-// Funções de leitura/escrita
+// Funções de leitura
 async function readUsers() {
   try {
     const data = await fs.readFile(USERS_FILE, 'utf8');
@@ -118,23 +71,18 @@ async function saveNews(news) {
   await fs.writeFile(NEWS_FILE, JSON.stringify(news, null, 2));
 }
 
-// Nodemailer
+// ✅ Nodemailer com as variáveis CORRETAS
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_APP_PASS
+    user: process.env.EMAIL_USER,        // ← TEM QUE SER ESTE NOME
+    pass: process.env.EMAIL_APP_PASS     // ← TEM QUE SER ESTE NOME
   }
-});
-
-transporter.verify((err) => {
-  if (err) console.error('📧 Erro no e-mail:', err.message);
-  else console.log('✅ E-mail configurado.');
 });
 
 const ADMINS = ['nukseditionofc@gmail.com', 'eduardomarangoni36@gmail.com'];
 
-// CADASTRO
+// CADASTRO — com reenvio para não confirmados
 app.post('/api/cadastrar', async (req, res) => {
   const { email, username, password } = req.body;
   if (!email || !username || !password) {
@@ -160,6 +108,7 @@ app.post('/api/cadastrar', async (req, res) => {
       existingUser.confirmed = false;
       await saveUsers(users);
 
+      // Envia e-mail em segundo plano
       transporter.sendMail({
         from: process.env.EMAIL_USER,
         to: email,
@@ -202,12 +151,6 @@ app.post('/api/confirmar', async (req, res) => {
   delete users[userIndex].code;
   await saveUsers(users);
 
-  // Login automático após confirmação
-  req.session.user = {
-    email: users[userIndex].email,
-    username: users[userIndex].username
-  };
-
   res.json({ message: 'Conta confirmada!', username: users[userIndex].username });
 });
 
@@ -225,39 +168,17 @@ app.post('/api/login', async (req, res) => {
     return res.status(400).json({ error: 'Email não cadastrado ou senha incorreta.' });
   }
 
-  req.session.user = { email: user.email, username: user.username };
   res.json({ message: 'Login bem-sucedido!', username: user.username });
-});
-
-// LOGOUT
-app.post('/api/logout', (req, res) => {
-  req.session.destroy(() => {
-    res.json({ message: 'Logout realizado.' });
-  });
-});
-
-// DADOS DO USUÁRIO (para frontend)
-app.get('/api/user', (req, res) => {
-  if (req.session.user) {
-    res.json({ 
-      isLoggedIn: true,
-      username: req.session.user.username,
-      email: req.session.user.email,
-      isAdmin: ADMINS.includes(req.session.user.email)
-    });
-  } else {
-    res.json({ isLoggedIn: false });
-  }
 });
 
 // NOTÍCIAS
 const upload = multer({ dest: UPLOADS_DIR });
 
 app.post('/api/news/upload', upload.single('image'), async (req, res) => {
-  if (!req.session.user || !ADMINS.includes(req.session.user.email)) {
+  const { email, title, description } = req.body;
+  if (!ADMINS.includes(email)) {
     return res.status(403).json({ error: 'Apenas administradores.' });
   }
-  const { title, description } = req.body;
   if (!title || !req.file) {
     return res.status(400).json({ error: 'Título e imagem obrigatórios.' });
   }
@@ -265,7 +186,7 @@ app.post('/api/news/upload', upload.single('image'), async (req, res) => {
   const news = await readNews();
   news.unshift({
     id: Date.now().toString(),
-    email: req.session.user.email,
+    email,
     title,
     description: description || '',
     imageUrl: req.file.filename,
@@ -281,7 +202,8 @@ app.get('/api/news', async (req, res) => {
 });
 
 app.delete('/api/news/:id', async (req, res) => {
-  if (!req.session.user || !ADMINS.includes(req.session.user.email)) {
+  const { email } = req.query;
+  if (!ADMINS.includes(email)) {
     return res.status(403).json({ error: 'Apenas administradores.' });
   }
   const news = await readNews();
@@ -294,7 +216,9 @@ app.use((req, res) => {
   res.status(404).send('Página não encontrada');
 });
 
+// ✅ LOG CLARO AO INICIAR
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Servidor rodando na porta ${PORT}`);
-  console.log(`📧 EMAIL_USER: ${process.env.EMAIL_USER ? 'OK' : 'FALTA!'}`);
+  console.log(`📧 EMAIL_USER: ${process.env.EMAIL_USER || 'NÃO DEFINIDO'}`);
+  console.log(`🔑 EMAIL_APP_PASS: ${process.env.EMAIL_APP_PASS ? 'DEFINIDO' : 'NÃO DEFINIDO'}`);
 });
