@@ -1,11 +1,10 @@
-// server.js — FUNCIONANDO NO RENDER
+// server.js — FUNCIONANDO NO RENDER (CORRIGIDO)
 const express = require('express');
 const nodemailer = require('nodemailer');
 const multer = require('multer');
 const fs = require('fs').promises;
 const path = require('path');
 const cors = require('cors');
-
 const app = express();
 const PORT = process.env.PORT || 10000; // Render usa 10000
 
@@ -22,11 +21,12 @@ const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const NEWS_FILE = path.join(DATA_DIR, 'news.json');
 
 // Criar pastas
-if (!require('fs').existsSync(UPLOADS_DIR)) {
-  require('fs').mkdirSync(UPLOADS_DIR, { recursive: true });
+const fsSync = require('fs');
+if (!fsSync.existsSync(UPLOADS_DIR)) {
+  fsSync.mkdirSync(UPLOADS_DIR, { recursive: true });
 }
-if (!require('fs').existsSync(DATA_DIR)) {
-  require('fs').mkdirSync(DATA_DIR, { recursive: true });
+if (!fsSync.existsSync(DATA_DIR)) {
+  fsSync.mkdirSync(DATA_DIR, { recursive: true });
 }
 
 app.use('/uploads', express.static(UPLOADS_DIR));
@@ -38,8 +38,9 @@ app.get('/cadastrar', (req, res) => res.sendFile(path.join(__dirname, 'public', 
 app.get('/confirmar', (req, res) => res.sendFile(path.join(__dirname, 'public', 'confirmar.html')));
 app.get('/home', (req, res) => res.sendFile(path.join(__dirname, 'public', 'home.html')));
 app.get('/explorar', (req, res) => res.sendFile(path.join(__dirname, 'public', 'explorar.html')));
-app.get('/noticias', (req, res) => res.sendFile(path.join(__dirname, 'public', 'noticias.html')));
+app.get('/noticias', (req, res) => res.sendFile(path.join(__dirname, 'public', 'noticia.html')));
 
+// Bloquear acesso direto a .html não mapeado
 app.get(/\.html$/, (req, res) => {
   res.status(404).send(`
     <html>
@@ -91,7 +92,7 @@ const transporter = nodemailer.createTransport({
 
 const ADMINS = ['nukseditionofc@gmail.com', 'eduardomarangoni36@gmail.com'];
 
-// CADASTRO
+// ✅ CADASTRO (CORRIGIDO)
 app.post('/api/cadastrar', async (req, res) => {
   const { email, username, password } = req.body;
   if (!email || !username || !password) {
@@ -102,11 +103,38 @@ app.post('/api/cadastrar', async (req, res) => {
   }
 
   const users = await readUsers();
-  if (users.some(u => u.email === email)) {
-    return res.status(400).json({ error: 'Email já cadastrado. Faça login.' });
-  }
+  const existingUser = users.find(u => u.email === email);
 
   const code = Math.floor(100000 + Math.random() * 900000).toString();
+
+  if (existingUser) {
+    if (existingUser.confirmed) {
+      return res.status(400).json({ error: 'Email já cadastrado. Faça login.' });
+    } else {
+      // Atualiza dados do usuário NÃO confirmado (permite reenvio)
+      existingUser.username = username;
+      existingUser.password = password;
+      existingUser.code = code;
+      existingUser.confirmed = false;
+      await saveUsers(users);
+
+      // Reenvia o código
+      try {
+        await transporter.sendMail({
+          from: process.env.EMAIL_USER,
+          to: email,
+          subject: 'Novo Código de Confirmação - NuksEdition',
+          text: `Seu novo código: ${code}`
+        });
+      } catch (err) {
+        console.error('Erro ao reenviar e-mail:', err.message);
+      }
+
+      return res.json({ message: 'Novo código enviado.', email });
+    }
+  }
+
+  // Novo usuário
   users.push({ email, username, password, code, confirmed: false });
   await saveUsers(users);
 
@@ -117,12 +145,11 @@ app.post('/api/cadastrar', async (req, res) => {
       subject: 'Código de Confirmação - NuksEdition',
       text: `Seu código: ${code}`
     });
-    res.json({ message: 'Código enviado.', email });
   } catch (err) {
-    console.error('Erro no email:', err.message);
-    // Mesmo sem e-mail, permite confirmar
-    res.json({ message: 'Usuário criado. Código: ' + code, email });
+    console.error('Erro no envio de e-mail:', err.message);
   }
+
+  res.json({ message: 'Código enviado.', email });
 });
 
 // CONFIRMAR
@@ -134,6 +161,7 @@ app.post('/api/confirmar', async (req, res) => {
 
   const users = await readUsers();
   const userIndex = users.findIndex(u => u.email === email && u.code === code && !u.confirmed);
+
   if (userIndex === -1) {
     return res.status(400).json({ error: 'Código inválido ou já usado.' });
   }
@@ -141,6 +169,7 @@ app.post('/api/confirmar', async (req, res) => {
   users[userIndex].confirmed = true;
   delete users[userIndex].code;
   await saveUsers(users);
+
   res.json({ message: 'Conta confirmada!', username: users[userIndex].username });
 });
 
@@ -153,14 +182,17 @@ app.post('/api/login', async (req, res) => {
 
   const users = await readUsers();
   const user = users.find(u => u.email === email && u.password === password && u.confirmed);
+
   if (!user) {
     return res.status(400).json({ error: 'Email não cadastrado ou senha incorreta.' });
   }
+
   res.json({ message: 'Login bem-sucedido!', username: user.username });
 });
 
 // NOTÍCIAS
 const upload = multer({ dest: UPLOADS_DIR });
+
 app.post('/api/news/upload', upload.single('image'), async (req, res) => {
   const { email, title, description } = req.body;
   if (!ADMINS.includes(email)) {
@@ -199,6 +231,7 @@ app.delete('/api/news/:id', async (req, res) => {
   res.json({ message: 'Notícia apagada.' });
 });
 
+// 404 genérico
 app.use((req, res) => {
   res.status(404).send('Página não encontrada');
 });
@@ -207,3 +240,4 @@ app.use((req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Servidor rodando na porta ${PORT}`);
 });
+
