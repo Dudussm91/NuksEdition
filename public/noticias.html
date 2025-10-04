@@ -27,7 +27,6 @@
         <span class="username">Carregando...</span>
         <a href="/home" class="back-link">Voltar</a>
     </div>
-
     <div id="adminPanel" style="display:none;" class="admin-panel">
         <h3>Publicar Nova Notícia</h3>
         <input type="text" id="newsTitle" placeholder="Título da notícia" required>
@@ -35,40 +34,34 @@
         <textarea id="newsDesc" placeholder="Descrição (opcional)" rows="3"></textarea>
         <button onclick="publishNews()">Publicar</button>
     </div>
-
     <div class="news-list" id="newsList"></div>
-
     <script>
         if (!sessionStorage.getItem('isLoggedIn')) {
             alert('Você precisa estar logado para acessar esta página.');
             window.location.href = '/login';
         }
-
         const email = sessionStorage.getItem('email') || '';
         const username = sessionStorage.getItem('username') || 'Usuário';
         document.querySelector('.username').textContent = username;
-
         const ADMINS = [
             'nukseditionofc@gmail.com',
             'eduardomarangoni36@gmail.com'
         ];
         const isAdmin = ADMINS.includes(email);
-
         if (isAdmin) {
             document.getElementById('adminPanel').style.display = 'block';
         }
-
         async function loadNews() {
             try {
-                const res = await fetch('http://localhost:3000/api/news');
+                const res = await fetch('/api/news');
                 const news = await res.json();
                 const list = document.getElementById('newsList');
                 list.innerHTML = '';
-
                 news.forEach(item => {
                     const div = document.createElement('div');
                     div.className = 'news-item';
-                    const imgPath = `http://localhost:3000/uploads/${item.imageUrl}`;
+                    // ✅ Corrigido: usa caminho relativo para imagem
+                    const imgPath = `/uploads/${item.image_url}`;
                     div.innerHTML = `
                         <h3>${item.title}</h3>
                         <img src="${imgPath}" alt="Imagem da notícia" onerror="this.style.display='none'">
@@ -82,25 +75,21 @@
                 console.error(err);
             }
         }
-
         async function publishNews() {
             const title = document.getElementById('newsTitle').value.trim();
             const fileInput = document.getElementById('newsImage');
             const description = document.getElementById('newsDesc').value.trim();
-
             if (!title || !fileInput.files[0]) {
                 alert('Título e imagem são obrigatórios.');
                 return;
             }
-
             const formData = new FormData();
             formData.append('email', email);
             formData.append('title', title);
             formData.append('description', description);
             formData.append('image', fileInput.files[0]);
-
             try {
-                const res = await fetch('http://localhost:3000/api/news/upload', {
+                const res = await fetch('/api/news/upload', {
                     method: 'POST',
                     body: formData
                 });
@@ -118,11 +107,10 @@
                 alert('Erro de conexão ao publicar notícia.');
             }
         }
-
         async function deleteNews(id) {
             if (!confirm('Tem certeza?')) return;
             try {
-                const res = await fetch(`http://localhost:3000/api/news/${id}?email=${email}`, {
+                const res = await fetch(`/api/news/${id}?email=${email}`, {
                     method: 'DELETE'
                 });
                 if (res.ok) {
@@ -135,7 +123,6 @@
                 alert('Erro de conexão ao apagar notícia.');
             }
         }
-
         loadNews();
     </script>
 </body>
