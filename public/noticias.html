@@ -60,7 +60,7 @@
                 news.forEach(item => {
                     const div = document.createElement('div');
                     div.className = 'news-item';
-                    const imgPath = `/uploads/${item.image_url}`;
+                    const imgPath = `/uploads/${item.imageUrl}`;
                     div.innerHTML = `
                         <h3>${item.title}</h3>
                         <img src="${imgPath}" alt="Imagem da notícia" onerror="this.style.display='none'">
