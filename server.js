@@ -1,36 +1,29 @@
-// server.js — COM SUPORTE A DISCO PERSISTENTE NO RENDER
+// server.js — COM SUPABASE (funciona no Render)
 const express = require('express');
 const nodemailer = require('nodemailer');
 const multer = require('multer');
 const fs = require('fs').promises;
 const path = require('path');
 const cors = require('cors');
+const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000; // Render usa 10000
 
 app.use(cors());
 app.use(express.json());
 
-// Pasta persistente para dados (funciona no Render com Persistent Disk)
-const DATA_DIR = process.env.RENDER
-  ? '/opt/render/project/src/data'
-  : __dirname;
-
-const USERS_FILE = path.join(DATA_DIR, 'users.json');
-const NEWS_FILE = path.join(DATA_DIR, 'news.json');
+// Pasta de uploads
 const UPLOADS_DIR = path.join(__dirname, 'public', 'uploads');
-
-// Criar pastas se não existirem
 if (!require('fs').existsSync(UPLOADS_DIR)) {
   require('fs').mkdirSync(UPLOADS_DIR, { recursive: true });
 }
-if (!require('fs').existsSync(DATA_DIR)) {
-  require('fs').mkdirSync(DATA_DIR, { recursive: true });
-}
-
-// Servir uploads
 app.use('/uploads', express.static(UPLOADS_DIR));
+
+// Conexão com Supabase
+const supabaseUrl = 'https://qkvglgggwmjnqeperhar.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFrdmdsZ2dnd21qbnFlcGVyaGFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk1MjI1ODUsImV4cCI6MjA3NTA5ODU4NX0.-khMRh9WvF5jXQYA86YlwRuO9x7bawcQS-RouzkE4dM';
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Rotas HTML
 app.get('/', (req, res) => res.redirect('/login'));
@@ -54,33 +47,6 @@ app.get(/\.html$/, (req, res) => {
     </html>
   `);
 });
-
-// Funções de leitura/escrita
-async function readUsers() {
-  try {
-    const data = await fs.readFile(USERS_FILE, 'utf8');
-    return JSON.parse(data);
-  } catch (err) {
-    return [];
-  }
-}
-
-async function saveUsers(users) {
-  await fs.writeFile(USERS_FILE, JSON.stringify(users, null, 2));
-}
-
-async function readNews() {
-  try {
-    const data = await fs.readFile(NEWS_FILE, 'utf8');
-    return JSON.parse(data);
-  } catch (err) {
-    return [];
-  }
-}
-
-async function saveNews(news) {
-  await fs.writeFile(NEWS_FILE, JSON.stringify(news, null, 2));
-}
 
 // Nodemailer
 const transporter = nodemailer.createTransport({
@@ -106,54 +72,109 @@ app.post('/api/cadastrar', async (req, res) => {
     return res.status(400).json({ error: 'Senha deve ter pelo menos 6 caracteres.' });
   }
 
-  const users = await readUsers();
-  if (users.some(u => u.email === email)) {
-    return res.status(400).json({ error: 'Email já cadastrado. Faça login.' });
-  }
-
-  const code = Math.floor(100000 + Math.random() * 900000).toString();
-  users.push({ email, username, password, code, confirmed: false });
-  await saveUsers(users);
-
   try {
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: 'Código de Confirmação - NuksEdition',
-      text: `Seu código: ${code}`
-    });
-    res.json({ message: 'Código enviado.', email });
+    // Verifica se o email já existe
+    const { data: existingUser, error: checkError } = await supabase
+      .from('users')
+      .select('email')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (checkError) throw checkError;
+    if (existingUser) {
+      return res.status(400).json({ error: 'Email já cadastrado. Faça login.' });
+    }
+
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const { data: newUser, error: insertError } = await supabase
+      .from('users')
+      .insert([
+        { email, username, password, code, confirmed: false }
+      ])
+      .select()
+      .maybeSingle();
+
+    if (insertError) throw insertError;
+
+    try {
+      await transporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: 'Código de Confirmação - NuksEdition',
+        text: `Seu código: ${code}`
+      });
+      res.json({ message: 'Código enviado.', email });
+    } catch (emailErr) {
+      console.error('Erro no email:', emailErr.message);
+      res.json({ message: 'Usuário criado. Código: ' + code, email });
+    }
   } catch (err) {
-    console.error('Erro no email:', err.message);
-    // Mesmo com erro de email, o usuário foi salvo — permitir confirmação manual
-    res.json({ message: 'Usuário criado. Código: ' + code, email });
+    console.error('Erro no cadastro:', err.message);
+    res.status(500).json({ error: 'Erro interno no servidor.' });
   }
 });
 
 // API: Confirmar
 app.post('/api/confirmar', async (req, res) => {
   const { email, code } = req.body;
-  const users = await readUsers();
-  const user = users.find(u => u.email === email && u.code === code && !u.confirmed);
-  if (!user) {
-    return res.status(400).json({ error: 'Código inválido ou já usado.' });
+  if (!email || !code) {
+    return res.status(400).json({ error: 'Email e código são obrigatórios.' });
   }
 
-  user.confirmed = true;
-  delete user.code;
-  await saveUsers(users);
-  res.json({ message: 'Conta confirmada!', username: user.username });
+  try {
+    const { data: user, error: selectError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .eq('code', code)
+      .eq('confirmed', false)
+      .maybeSingle();
+
+    if (selectError) throw selectError;
+    if (!user) {
+      return res.status(400).json({ error: 'Código inválido ou já usado.' });
+    }
+
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ confirmed: true, code: null })
+      .eq('email', email);
+
+    if (updateError) throw updateError;
+
+    res.json({ message: 'Conta confirmada!', username: user.username });
+  } catch (err) {
+    console.error('Erro na confirmação:', err.message);
+    res.status(500).json({ error: 'Erro ao confirmar conta.' });
+  }
 });
 
 // API: Login
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
-  const users = await readUsers();
-  const user = users.find(u => u.email === email && u.password === password && u.confirmed);
-  if (!user) {
-    return res.status(400).json({ error: 'Email não cadastrado ou senha incorreta.' });
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Preencha todos os campos.' });
   }
-  res.json({ message: 'Login bem-sucedido!', username: user.username });
+
+  try {
+    const { data: user, error: selectError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .eq('password', password)
+      .eq('confirmed', true)
+      .maybeSingle();
+
+    if (selectError) throw selectError;
+    if (!user) {
+      return res.status(400).json({ error: 'Email não cadastrado ou senha incorreta.' });
+    }
+
+    res.json({ message: 'Login bem-sucedido!', username: user.username });
+  } catch (err) {
+    console.error('Erro no login:', err.message);
+    res.status(500).json({ error: 'Erro interno.' });
+  }
 });
 
 // API: Notícias
@@ -168,22 +189,38 @@ app.post('/api/news/upload', upload.single('image'), async (req, res) => {
     return res.status(400).json({ error: 'Título e imagem obrigatórios.' });
   }
 
-  const news = await readNews();
-  news.unshift({
-    id: Date.now().toString(),
-    email,
-    title,
-    description: description || '',
-    imageUrl: req.file.filename,
-    date: new Date().toISOString().split('T')[0]
-  });
-  await saveNews(news);
-  res.json({ message: 'Notícia publicada!' });
+  try {
+    const id = Date.now().toString();
+    const date = new Date().toISOString().split('T')[0];
+    const { error: insertError } = await supabase
+      .from('news')
+      .insert([
+        { id, email, title, description: description || '', image_url: req.file.filename, date }
+      ]);
+
+    if (insertError) throw insertError;
+
+    res.json({ message: 'Notícia publicada!' });
+  } catch (err) {
+    console.error('Erro ao publicar notícia:', err.message);
+    res.status(500).json({ error: 'Erro ao salvar notícia.' });
+  }
 });
 
 app.get('/api/news', async (req, res) => {
-  const news = await readNews();
-  res.json(news);
+  try {
+    const { data: news, error } = await supabase
+      .from('news')
+      .select('*')
+      .order('date', { ascending: false });
+
+    if (error) throw error;
+
+    res.json(news);
+  } catch (err) {
+    console.error('Erro ao carregar notícias:', err.message);
+    res.status(500).json({ error: 'Erro ao carregar notícias.' });
+  }
 });
 
 app.delete('/api/news/:id', async (req, res) => {
@@ -191,10 +228,20 @@ app.delete('/api/news/:id', async (req, res) => {
   if (!ADMINS.includes(email)) {
     return res.status(403).json({ error: 'Apenas administradores.' });
   }
-  const news = await readNews();
-  const filtered = news.filter(n => n.id !== req.params.id);
-  await saveNews(filtered);
-  res.json({ message: 'Notícia apagada.' });
+
+  try {
+    const { error } = await supabase
+      .from('news')
+      .delete()
+      .eq('id', req.params.id);
+
+    if (error) throw error;
+
+    res.json({ message: 'Notícia apagada.' });
+  } catch (err) {
+    console.error('Erro ao apagar notícia:', err.message);
+    res.status(500).json({ error: 'Erro ao apagar notícia.' });
+  }
 });
 
 // 404 geral
