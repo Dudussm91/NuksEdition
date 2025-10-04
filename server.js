@@ -1,4 +1,4 @@
-// server.js — FUNCIONANDO NO RENDER (CORRIGIDO)
+// server.js — CORRIGIDO PARA RENDER + GMAIL
 const express = require('express');
 const nodemailer = require('nodemailer');
 const multer = require('multer');
@@ -6,7 +6,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const cors = require('cors');
 const app = express();
-const PORT = process.env.PORT || 10000; // Render usa 10000
+const PORT = process.env.PORT || 10000;
 
 app.use(cors());
 app.use(express.json());
@@ -40,7 +40,6 @@ app.get('/home', (req, res) => res.sendFile(path.join(__dirname, 'public', 'home
 app.get('/explorar', (req, res) => res.sendFile(path.join(__dirname, 'public', 'explorar.html')));
 app.get('/noticias', (req, res) => res.sendFile(path.join(__dirname, 'public', 'noticia.html')));
 
-// Bloquear acesso direto a .html não mapeado
 app.get(/\.html$/, (req, res) => {
   res.status(404).send(`
     <html>
@@ -54,7 +53,7 @@ app.get(/\.html$/, (req, res) => {
   `);
 });
 
-// Leitura/escrita
+// Funções de leitura/escrita
 async function readUsers() {
   try {
     const data = await fs.readFile(USERS_FILE, 'utf8');
@@ -81,7 +80,7 @@ async function saveNews(news) {
   await fs.writeFile(NEWS_FILE, JSON.stringify(news, null, 2));
 }
 
-// Nodemailer
+// ✅ Configuração do Nodemailer — com validação
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
@@ -90,9 +89,18 @@ const transporter = nodemailer.createTransport({
   }
 });
 
+// Testar configuração do e-mail no início (opcional, mas útil)
+transporter.verify((error, success) => {
+  if (error) {
+    console.error('⚠️ Erro na configuração do e-mail:', error.message);
+  } else {
+    console.log('✅ Servidor de e-mail pronto para enviar.');
+  }
+});
+
 const ADMINS = ['nukseditionofc@gmail.com', 'eduardomarangoni36@gmail.com'];
 
-// ✅ CADASTRO — RÁPIDO e com reenvio para não confirmados
+// ✅ CADASTRO — com reenvio e sem bloqueio
 app.post('/api/cadastrar', async (req, res) => {
   const { email, username, password } = req.body;
   if (!email || !username || !password) {
@@ -111,20 +119,22 @@ app.post('/api/cadastrar', async (req, res) => {
     if (existingUser.confirmed) {
       return res.status(400).json({ error: 'Email já cadastrado. Faça login.' });
     } else {
-      // Atualiza usuário NÃO confirmado
+      // Atualiza usuário não confirmado
       existingUser.username = username;
       existingUser.password = password;
       existingUser.code = code;
       existingUser.confirmed = false;
       await saveUsers(users);
 
-      // Envia e-mail em segundo plano (não bloqueia)
+      // Envia e-mail em segundo plano
       transporter.sendMail({
         from: process.env.EMAIL_USER,
         to: email,
-        subject: 'Novo Código de Confirmação - NuksEdition',
+        subject: '🔄 Novo Código de Confirmação - NuksEdition',
         text: `Seu novo código: ${code}`
-      }).catch(err => console.error('Falha ao reenviar e-mail:', err.message));
+      }).catch(err => {
+        console.error(`❌ Falha ao reenviar e-mail para ${email}:`, err.message);
+      });
 
       return res.json({ message: 'Novo código enviado.', email });
     }
@@ -134,16 +144,18 @@ app.post('/api/cadastrar', async (req, res) => {
   users.push({ email, username, password, code, confirmed: false });
   await saveUsers(users);
 
-  // Responde IMEDIATAMENTE
+  // Responde imediatamente
   res.json({ message: 'Código enviado.', email });
 
-  // Envia e-mail em segundo plano
+  // Envia e-mail em segundo plano (não bloqueia)
   transporter.sendMail({
     from: process.env.EMAIL_USER,
     to: email,
-    subject: 'Código de Confirmação - NuksEdition',
-    text: `Seu código: ${code}`
-  }).catch(err => console.error('Falha ao enviar e-mail:', err.message));
+    subject: '🔐 Código de Confirmação - NuksEdition',
+    text: `Seu código de confirmação é: ${code}`
+  }).catch(err => {
+    console.error(`❌ Falha ao enviar e-mail para ${email}:`, err.message);
+  });
 });
 
 // CONFIRMAR
@@ -225,12 +237,11 @@ app.delete('/api/news/:id', async (req, res) => {
   res.json({ message: 'Notícia apagada.' });
 });
 
-// 404 genérico
 app.use((req, res) => {
   res.status(404).send('Página não encontrada');
 });
 
-// ✅ OBRIGATÓRIO PARA RENDER
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Servidor rodando na porta ${PORT}`);
+  console.log(`📧 EMAIL_USER configurado: ${process.env.EMAIL_USER ? 'Sim' : 'NÃO'}`);
 });
