@@ -60,7 +60,6 @@
                 news.forEach(item => {
                     const div = document.createElement('div');
                     div.className = 'news-item';
-                    // ✅ Corrigido: usa caminho relativo para imagem
                     const imgPath = `/uploads/${item.image_url}`;
                     div.innerHTML = `
                         <h3>${item.title}</h3>
