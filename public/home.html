@@ -22,20 +22,25 @@
             <a href="/noticias">Notícias</a>
         </div>
     </div>
-
     <div class="content-box">
         <p>Bem vindo ao site NuksEdition</p>
         <p>Explorar, não tem sites lançados</p>
         <p>Notícias, veja as notícias novas</p>
     </div>
-
     <script>
-        if (!sessionStorage.getItem('isLoggedIn')) {
-            alert('Você precisa estar cadastrado e logado para acessar esta página.');
+        // Busca dados do usuário do servidor
+        fetch('/api/user')
+          .then(res => res.json())
+          .then(data => {
+            if (!data.isLoggedIn) {
+              window.location.href = '/login';
+            } else {
+              document.querySelector('.username').textContent = data.username;
+            }
+          })
+          .catch(() => {
             window.location.href = '/login';
-        }
-        const username = sessionStorage.getItem('username') || 'Usuário';
-        document.querySelector('.username').textContent = username;
+          });
     </script>
 </body>
 </html>
