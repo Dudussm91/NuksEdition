@@ -11,6 +11,7 @@
         .register-box input { display: block; width: 90%; margin: 10px auto; padding: 8px; border: 2px solid gray; font-size: 14px; outline: none; }
         .register-box button { margin-top: 15px; padding: 10px; width: 100px; background: gray; color: black; border: none; font-size: 16px; cursor: pointer; }
         .register-box button:hover { background: #666; color: white; }
+        .register-box button:disabled { background: #ccc; cursor: not-allowed; }
         .login-link { margin-top: 15px; font-size: 14px; }
         .login-link a { color: gray; text-decoration: none; font-weight: bold; }
         .login-link a:hover { text-decoration: underline; }
@@ -23,17 +24,30 @@
         <input type="email" placeholder="Email">
         <input type="text" placeholder="Nome de usuário">
         <input type="password" placeholder="Senha">
-        <button>Continuar</button>
+        <button id="submitBtn">Continuar</button>
         <div class="login-link">
             Já tem uma conta? <a href="/login">faça login</a>
         </div>
     </div>
     <script>
-        document.querySelector('button').addEventListener('click', async () => {
+        const button = document.getElementById('submitBtn');
+        button.addEventListener('click', async () => {
+            // Evitar cliques múltiplos
+            if (button.disabled) return;
+            button.disabled = true;
+            button.textContent = 'Enviando...';
+
             const email = document.querySelector('input[type="email"]').value;
             const username = document.querySelector('input[type="text"]').value;
             const password = document.querySelector('input[type="password"]').value;
-            if (!email || !username || !password) return alert('Preencha todos os campos.');
+
+            if (!email || !username || !password) {
+                alert('Preencha todos os campos.');
+                button.disabled = false;
+                button.textContent = 'Continuar';
+                return;
+            }
+
             try {
                 const res = await fetch('/api/cadastrar', {
                     method: 'POST',
@@ -41,17 +55,21 @@
                     body: JSON.stringify({ email, username, password })
                 });
                 const data = await res.json();
+
                 if (res.ok) {
                     sessionStorage.setItem('pendingEmail', data.email);
                     window.location.href = '/confirmar';
                 } else {
                     alert(data.error);
+                    button.disabled = false;
+                    button.textContent = 'Continuar';
                 }
             } catch (e) {
                 alert('Erro de conexão com o servidor.');
+                button.disabled = false;
+                button.textContent = 'Continuar';
             }
         });
     </script>
 </body>
 </html>
-
