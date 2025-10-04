@@ -1,4 +1,4 @@
-// server.js — SUPABASE + RENDER + SEM ERROS
+// server.js — FUNCIONANDO COM SUPABASE NO RENDER
 const express = require('express');
 const nodemailer = require('nodemailer');
 const multer = require('multer');
@@ -7,12 +7,11 @@ const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
-const PORT = process.env.PORT || 10000; // Render usa 10000
+const PORT = process.env.PORT || 10000;
 
 app.use(cors());
 app.use(express.json());
 
-// Pasta de uploads
 const UPLOADS_DIR = path.join(__dirname, 'public', 'uploads');
 if (!require('fs').existsSync(UPLOADS_DIR)) {
   require('fs').mkdirSync(UPLOADS_DIR, { recursive: true });
@@ -33,7 +32,6 @@ app.get('/home', (req, res) => res.sendFile(path.join(__dirname, 'public', 'home
 app.get('/explorar', (req, res) => res.sendFile(path.join(__dirname, 'public', 'explorar.html')));
 app.get('/noticias', (req, res) => res.sendFile(path.join(__dirname, 'public', 'noticias.html')));
 
-// Bloquear .html direto
 app.get(/\.html$/, (req, res) => {
   res.status(404).send(`
     <html>
@@ -72,7 +70,6 @@ app.post('/api/cadastrar', async (req, res) => {
   }
 
   try {
-    // Verifica se já existe
     const { data: existing, error: checkErr } = await supabase
       .from('users')
       .select('email')
@@ -89,11 +86,10 @@ app.post('/api/cadastrar', async (req, res) => {
       .insert([{ email, username, password, code, confirmed: false }]);
 
     if (insertErr) {
-      console.error('Erro ao inserir usuário:', insertErr);
+      console.error('Erro ao inserir:', insertErr);
       return res.status(500).json({ error: 'Erro ao salvar usuário.' });
     }
 
-    // Tenta enviar e-mail
     try {
       await transporter.sendMail({
         from: process.env.EMAIL_USER,
@@ -104,11 +100,10 @@ app.post('/api/cadastrar', async (req, res) => {
       res.json({ message: 'Código enviado.', email });
     } catch (emailErr) {
       console.error('Erro no e-mail:', emailErr.message);
-      // Mesmo sem e-mail, permite confirmar (para testes)
       res.json({ message: 'Usuário criado. Código: ' + code, email });
     }
   } catch (err) {
-    console.error('Erro no cadastro:', err);
+    console.error('Erro geral:', err);
     res.status(500).json({ error: 'Erro interno no servidor.' });
   }
 });
@@ -237,7 +232,6 @@ app.delete('/api/news/:id', async (req, res) => {
   }
 });
 
-// 404 geral
 app.use((req, res) => {
   res.status(404).send('Página não encontrada');
 });
