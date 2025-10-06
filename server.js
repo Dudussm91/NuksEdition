@@ -13,7 +13,7 @@ const supabaseUrl = 'https://spyeukuqawmwaufynzzb.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNweWV1a3VxYXdtd2F1ZnluenpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk3MDcxNTcsImV4cCI6MjA3NTI4MzE1N30.6jLzCmqPLDan4xgWhwxcUnQNKyITvB2YBDHEL_GNkMQ';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// ✅ Nodemailer — CONFIGURAÇÃO CORRETA PARA RENDER
+// ✅ Nodemailer — CONFIGURAÇÃO PARA RENDER + GMAIL
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
   port: 465,
@@ -65,24 +65,20 @@ app.get('/confirmar.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'confirmar.html'));
 });
 
-// ✅ CADASTRO — CORRIGIDO (permite reenviar código)
+// ✅ CADASTRO — CORRIGIDO
 app.post('/cadastro', async (req, res) => {
   const { username, email, senha } = req.body;
   const normEmail = email.toLowerCase().trim();
 
   // ✅ Só bloqueia se já existir CONFIRMADO
-  const {  confirmedUsers, error: checkError } = await supabase
+  const { data, error } = await supabase
     .from('users')
     .select('email')
     .eq('email', normEmail)
     .eq('confirmed', true);
 
-  if (checkError) {
-    console.error('Erro ao verificar email:', checkError);
-    return res.status(500).send('Erro interno');
-  }
-
-  if (confirmedUsers.length > 0) {
+  if (error) return res.status(500).send('Erro interno');
+  if (data.length > 0) {
     return res.send(`
       <script>
         alert("Usuário já cadastrado");
@@ -107,23 +103,18 @@ app.post('/cadastro', async (req, res) => {
     console.error('Erro ao enviar email:', e);
   }
 
-  // ✅ Atualiza ou insere usuário
-  const {  existing, error: fetchError } = await supabase
+  // ✅ Atualiza ou insere
+  const { data: existing, error: fetchError } = await supabase
     .from('users')
     .select('id')
     .eq('email', normEmail);
 
-  if (fetchError) {
-    return res.status(500).send('Erro ao salvar usuário');
-  }
+  if (fetchError) return res.status(500).send('Erro ao salvar');
 
   if (existing.length > 0) {
     await supabase
       .from('users')
-      .update({ 
-        verification_code: code,
-        confirmed: false 
-      })
+      .update({ verification_code: code, confirmed: false })
       .eq('id', existing[0].id);
   } else {
     await supabase.from('users').insert({
@@ -136,10 +127,10 @@ app.post('/cadastro', async (req, res) => {
   }
 
   if (!emailSent) {
-    console.log(`[CÓDIGO DE TESTE] ${normEmail}: ${code}`);
+    console.log(`[CÓDIGO] ${normEmail}: ${code}`);
     return res.send(`
       <script>
-        alert("Conta criada. Código no log do servidor (email falhou).");
+        alert("Conta criada. Código no log do servidor.");
         window.location.href = "/confirmar.html?email=${encodeURIComponent(normEmail)}";
       </script>
     `);
@@ -289,8 +280,7 @@ app.post('/noticias/excluir/:id', requireAuth, async (req, res) => {
 
 app.use((req, res) => res.status(404).send('Página não encontrada'));
 
-// ✅ Render exige host 0.0.0.0
+// ✅ Render exige host 0.0.0.0 + porta 10000
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Rodando em http://localhost:${PORT}`);
 });
-
