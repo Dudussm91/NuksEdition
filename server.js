@@ -65,19 +65,24 @@ app.get('/confirmar.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'confirmar.html'));
 });
 
-// ✅ CADASTRO — CORRIGIDO
+// ✅ CADASTRO — CORRIGIDO (permite reenviar código)
 app.post('/cadastro', async (req, res) => {
   const { username, email, senha } = req.body;
   const normEmail = email.toLowerCase().trim();
 
-  const { data, error } = await supabase
+  // ✅ Só bloqueia se já existir CONFIRMADO
+  const {  confirmedUsers, error: checkError } = await supabase
     .from('users')
     .select('email')
-    .eq('email', normEmail);
+    .eq('email', normEmail)
+    .eq('confirmed', true);
 
-  if (error) return res.status(500).send('Erro interno');
+  if (checkError) {
+    console.error('Erro ao verificar email:', checkError);
+    return res.status(500).send('Erro interno');
+  }
 
-  if (data.length > 0) {
+  if (confirmedUsers.length > 0) {
     return res.send(`
       <script>
         alert("Usuário já cadastrado");
@@ -88,6 +93,8 @@ app.post('/cadastro', async (req, res) => {
 
   const code = Math.floor(100000 + Math.random() * 900000).toString();
 
+  // ✅ Tenta enviar email, mas NUNCA trava
+  let emailSent = false;
   try {
     await transporter.sendMail({
       from: '"NuksEdition" <nukseditionofc@gmail.com>',
@@ -95,25 +102,53 @@ app.post('/cadastro', async (req, res) => {
       subject: 'Código de Confirmação',
       text: `Seu código: ${code}`
     });
+    emailSent = true;
   } catch (e) {
     console.error('Erro ao enviar email:', e);
-    return res.status(500).send('Erro ao enviar código');
   }
 
-  const { error: insertError } = await supabase.from('users').insert({
-    username: username.trim(),
-    email: normEmail,
-    senha: senha,
-    confirmed: false,
-    verification_code: code
-  });
+  // ✅ Atualiza ou insere usuário
+  const {  existing, error: fetchError } = await supabase
+    .from('users')
+    .select('id')
+    .eq('email', normEmail);
 
-  if (insertError) return res.status(500).send('Erro ao criar conta');
+  if (fetchError) {
+    return res.status(500).send('Erro ao salvar usuário');
+  }
+
+  if (existing.length > 0) {
+    await supabase
+      .from('users')
+      .update({ 
+        verification_code: code,
+        confirmed: false 
+      })
+      .eq('id', existing[0].id);
+  } else {
+    await supabase.from('users').insert({
+      username: username.trim(),
+      email: normEmail,
+      senha: senha,
+      confirmed: false,
+      verification_code: code
+    });
+  }
+
+  if (!emailSent) {
+    console.log(`[CÓDIGO DE TESTE] ${normEmail}: ${code}`);
+    return res.send(`
+      <script>
+        alert("Conta criada. Código no log do servidor (email falhou).");
+        window.location.href = "/confirmar.html?email=${encodeURIComponent(normEmail)}";
+      </script>
+    `);
+  }
 
   res.redirect(`/confirmar.html?email=${encodeURIComponent(normEmail)}`);
 });
 
-// ✅ CONFIRMAÇÃO — CORRIGIDO
+// ✅ CONFIRMAÇÃO
 app.post('/confirmar', async (req, res) => {
   const { email, codigo } = req.body;
   const normEmail = email.toLowerCase().trim();
@@ -142,7 +177,7 @@ app.post('/confirmar', async (req, res) => {
   res.redirect('/home');
 });
 
-// ✅ LOGIN — CORRIGIDO
+// ✅ LOGIN
 app.post('/login', async (req, res) => {
   const { email, senha } = req.body;
   const normEmail = email.toLowerCase().trim();
@@ -179,7 +214,7 @@ async function serveProtectedPage(pageName, req, res) {
   html = html.replace(/{{username}}/g, req.user.username);
 
   if (pageName === 'noticias.html') {
-    const { data: news, error } = await supabase
+    const {  news, error } = await supabase
       .from('news')
       .select('*')
       .order('created_at', { ascending: false });
@@ -224,7 +259,7 @@ async function serveProtectedPage(pageName, req, res) {
   res.send(html);
 }
 
-// ✅ ROTAS PROTEGIDAS — COM requireAuth
+// ✅ ROTAS PROTEGIDAS
 app.get('/home', requireAuth, (req, res) => serveProtectedPage('home.html', req, res));
 app.get('/explorar', requireAuth, (req, res) => serveProtectedPage('explorar.html', req, res));
 app.get('/noticias', requireAuth, (req, res) => serveProtectedPage('noticias.html', req, res));
@@ -256,5 +291,6 @@ app.use((req, res) => res.status(404).send('Página não encontrada'));
 
 // ✅ Render exige host 0.0.0.0
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`✅ Servidor rodando em http://localhost:${PORT}`);
+  console.log(`✅ Rodando em http://localhost:${PORT}`);
 });
+
