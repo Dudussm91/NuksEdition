@@ -5,9 +5,9 @@ const path = require('path');
 const fs = require('fs');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 
-// 🔑 Configuração do Supabase
+// 🔑 Supabase
 const supabaseUrl = 'https://spyeukuqawmwaufynzzb.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNweWV1a3VxYXdtd2F1ZnluenpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk3MDcxNTcsImV4cCI6MjA3NTI4MzE1N30.6jLzCmqPLDan4xgWhwxcUnQNKyITvB2YBDHEL_GNkMQ';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
@@ -16,7 +16,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 app.use(cookieParser());
 
-// Função para definir cookie de autenticação
+// Define cookie de autenticação
 function setAuthCookie(res, email) {
   res.cookie('nuks_auth', email, {
     httpOnly: true,
@@ -143,8 +143,8 @@ app.get('/logout', (req, res) => {
   res.redirect('/login.html');
 });
 
-// Servir páginas protegidas
-function serveProtectedPage(pageName, req, res) {
+// ✅ Função ASYNC corrigida
+async function serveProtectedPage(pageName, req, res) {
   const filePath = path.join(__dirname, 'protected', pageName);
   let html = fs.readFileSync(filePath, 'utf8');
   html = html.replace(/{{username}}/g, req.user.username);
@@ -228,6 +228,7 @@ app.post('/noticias/excluir/:id', requireAuth, async (req, res) => {
 // 404
 app.use((req, res) => res.status(404).send('Página não encontrada'));
 
-app.listen(PORT, () => {
+// Render usa PORT 10000 por padrão
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Servidor rodando em http://localhost:${PORT}`);
 });
