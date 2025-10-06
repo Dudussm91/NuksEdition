@@ -16,7 +16,6 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 app.use(cookieParser());
 
-// Define cookie de autenticação
 function setAuthCookie(res, email) {
   res.cookie('nuks_auth', email, {
     httpOnly: true,
@@ -26,19 +25,18 @@ function setAuthCookie(res, email) {
   });
 }
 
-// Middleware de autenticação
 async function requireAuth(req, res, next) {
   const email = req.cookies?.nuks_auth;
   if (!email) return res.redirect('/login.html');
 
-  const {  user } = await supabase
+  const {  user, error } = await supabase
     .from('users')
     .select('email, username')
     .eq('email', email)
     .eq('confirmed', true)
     .single();
 
-  if (!user) return res.redirect('/login.html');
+  if (error || !user) return res.redirect('/login.html');
 
   req.user = user;
   next();
@@ -50,17 +48,22 @@ app.get('/login.html', (req, res) => res.sendFile(path.join(__dirname, 'public',
 app.get('/cadastro.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'cadastro.html')));
 app.get('/confirmar.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'confirmar.html')));
 
-// Cadastro
+// ✅ CADASTRO — CORRIGIDO
 app.post('/cadastro', async (req, res) => {
   const { username, email, senha } = req.body;
   const normEmail = email.toLowerCase().trim();
 
-  const {  existing } = await supabase
+  const {  existingUsers, error: checkError } = await supabase
     .from('users')
     .select('email')
     .eq('email', normEmail);
 
-  if (existing.length > 0) {
+  if (checkError) {
+    console.error('Erro ao verificar email:', checkError);
+    return res.status(500).send('Erro interno');
+  }
+
+  if (existingUsers.length > 0) {
     return res.send(`
       <script>
         alert("Usuário já cadastrado");
@@ -70,7 +73,7 @@ app.post('/cadastro', async (req, res) => {
   }
 
   const code = Math.floor(100000 + Math.random() * 900000).toString();
-  await supabase.from('users').insert({
+  const { error: insertError } = await supabase.from('users').insert({
     username: username.trim(),
     email: normEmail,
     senha: senha,
@@ -78,63 +81,78 @@ app.post('/cadastro', async (req, res) => {
     verification_code: code
   });
 
+  if (insertError) {
+    console.error('Erro ao inserir usuário:', insertError);
+    return res.status(500).send('Erro ao criar conta');
+  }
+
   console.log(`[CÓDIGO DE TESTE] Para ${normEmail}: ${code}`);
   res.redirect(`/confirmar.html?email=${encodeURIComponent(normEmail)}`);
 });
 
-// Confirmação
+// ✅ CONFIRMAÇÃO — CORRIGIDO
 app.post('/confirmar', async (req, res) => {
   const { email, codigo } = req.body;
   const normEmail = email.toLowerCase().trim();
 
-  const {  user } = await supabase
+  const {  users, error: confirmError } = await supabase
     .from('users')
     .select('*')
     .eq('email', normEmail)
-    .eq('verification_code', codigo)
-    .single();
+    .eq('verification_code', codigo);
 
-  if (user) {
-    await supabase
-      .from('users')
-      .update({ confirmed: true, verification_code: null })
-      .eq('id', user.id);
-    setAuthCookie(res, normEmail);
-    return res.redirect('/home');
+  if (confirmError) {
+    console.error('Erro na confirmação:', confirmError);
+    return res.status(500).send('Erro na confirmação');
   }
 
-  return res.send(`
-    <script>
-      alert("Código inválido");
-      window.location.href = "/confirmar.html?email=${encodeURIComponent(normEmail)}";
-    </script>
-  `);
+  if (users.length === 0) {
+    return res.send(`
+      <script>
+        alert("Código inválido");
+        window.location.href = "/confirmar.html?email=${encodeURIComponent(normEmail)}";
+      </script>
+    `);
+  }
+
+  const user = users[0];
+  await supabase
+    .from('users')
+    .update({ confirmed: true, verification_code: null })
+    .eq('id', user.id);
+
+  setAuthCookie(res, normEmail);
+  res.redirect('/home');
 });
 
-// Login
+// ✅ LOGIN — CORRIGIDO
 app.post('/login', async (req, res) => {
   const { email, senha } = req.body;
   const normEmail = email.toLowerCase().trim();
 
-  const {  user } = await supabase
+  const {  matchedUsers, error: loginError } = await supabase
     .from('users')
     .select('email')
     .eq('email', normEmail)
     .eq('senha', senha)
-    .eq('confirmed', true)
-    .single();
+    .eq('confirmed', true);
 
-  if (user) {
-    setAuthCookie(res, normEmail);
-    return res.redirect('/home');
+  if (loginError) {
+    console.error('Erro no login:', loginError);
+    return res.status(500).send('Erro no login');
   }
 
-  return res.send(`
-    <script>
-      alert("Usuário não cadastrado ou não confirmado");
-      window.location.href = "/login.html";
-    </script>
-  `);
+  if (matchedUsers.length === 0) {
+    return res.send(`
+      <script>
+        alert("Usuário não cadastrado ou não confirmado");
+        window.location.href = "/login.html";
+      </script>
+    `);
+  }
+
+  setAuthCookie(res, normEmail);
+  res.redirect('/home');
 });
 
 // Logout
@@ -143,17 +161,22 @@ app.get('/logout', (req, res) => {
   res.redirect('/login.html');
 });
 
-// ✅ Função ASYNC corrigida
+// ✅ SERVE PÁGINAS PROTEGIDAS — COM async
 async function serveProtectedPage(pageName, req, res) {
   const filePath = path.join(__dirname, 'protected', pageName);
   let html = fs.readFileSync(filePath, 'utf8');
   html = html.replace(/{{username}}/g, req.user.username);
 
   if (pageName === 'noticias.html') {
-    const {  news } = await supabase
+    const {  news, error } = await supabase
       .from('news')
       .select('*')
       .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Erro ao carregar notícias:', error);
+      news = [];
+    }
 
     let newsList = news.length > 0 ? 
       news.map(item => `
@@ -228,7 +251,7 @@ app.post('/noticias/excluir/:id', requireAuth, async (req, res) => {
 // 404
 app.use((req, res) => res.status(404).send('Página não encontrada'));
 
-// Render usa PORT 10000 por padrão
+// Render exige host 0.0.0.0
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`✅ Servidor rodando em http://localhost:${PORT}`);
+  console.log(`✅ Rodando em http://localhost:${PORT}`);
 });
