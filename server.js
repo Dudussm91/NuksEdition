@@ -48,12 +48,12 @@ app.get('/login.html', (req, res) => res.sendFile(path.join(__dirname, 'public',
 app.get('/cadastro.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'cadastro.html')));
 app.get('/confirmar.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'confirmar.html')));
 
-// ✅ CADASTRO — CORRIGIDO
+// ✅ CADASTRO — CORRIGIDO TOTALMENTE
 app.post('/cadastro', async (req, res) => {
   const { username, email, senha } = req.body;
   const normEmail = email.toLowerCase().trim();
 
-  const {  existingUsers, error: checkError } = await supabase
+  const { data: users, error: checkError } = await supabase
     .from('users')
     .select('email')
     .eq('email', normEmail);
@@ -63,7 +63,7 @@ app.post('/cadastro', async (req, res) => {
     return res.status(500).send('Erro interno');
   }
 
-  if (existingUsers.length > 0) {
+  if (users.length > 0) {
     return res.send(`
       <script>
         alert("Usuário já cadastrado");
@@ -88,6 +88,46 @@ app.post('/cadastro', async (req, res) => {
 
   console.log(`[CÓDIGO DE TESTE] Para ${normEmail}: ${code}`);
   res.redirect(`/confirmar.html?email=${encodeURIComponent(normEmail)}`);
+});
+
+// ✅ CONFIRMAÇÃO — CORRIGIDO TOTALMENTE
+app.post('/confirmar', async (req, res) => {
+  const { email, codigo } = req.body;
+  const normEmail = email.toLowerCase().trim();
+
+  const { data: users, error: confirmError } = await supabase
+    .from('users')
+    .select('*')
+    .eq('email', normEmail)
+    .eq('verification_code', codigo);
+
+  if (confirmError) {
+    console.error('Erro na confirmação:', confirmError);
+    return res.status(500).send('Erro na confirmação');
+  }
+
+  if (users.length === 0) {
+    return res.send(`
+      <script>
+        alert("Código inválido");
+        window.location.href = "/confirmar.html?email=${encodeURIComponent(normEmail)}";
+      </script>
+    `);
+  }
+
+  const user = users[0];
+  const { error: updateError } = await supabase
+    .from('users')
+    .update({ confirmed: true, verification_code: null })
+    .eq('id', user.id);
+
+  if (updateError) {
+    console.error('Erro ao confirmar usuário:', updateError);
+    return res.status(500).send('Erro ao confirmar conta');
+  }
+
+  setAuthCookie(res, normEmail);
+  res.redirect('/home');
 });
 
 // ✅ CONFIRMAÇÃO — CORRIGIDO
@@ -255,3 +295,4 @@ app.use((req, res) => res.status(404).send('Página não encontrada'));
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Rodando em http://localhost:${PORT}`);
 });
+
