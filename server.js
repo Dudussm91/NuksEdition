@@ -1,6 +1,7 @@
 const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
 const cookieParser = require('cookie-parser');
+const nodemailer = require('nodemailer');
 const path = require('path');
 const fs = require('fs');
 
@@ -11,6 +12,24 @@ const PORT = process.env.PORT || 10000;
 const supabaseUrl = 'https://spyeukuqawmwaufynzzb.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNweWV1a3VxYXdtd2F1ZnluenpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk3MDcxNTcsImV4cCI6MjA3NTI4MzE1N30.6jLzCmqPLDan4xgWhwxcUnQNKyITvB2YBDHEL_GNkMQ';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// 📧 Nodemailer (com fallback para console se falhar)
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: 'nukseditionofc@gmail.com',
+    pass: 'srbpbdxhnwlxjueg'
+  }
+});
+
+// Verifica se o email funciona
+transporter.verify((error) => {
+  if (error) {
+    console.log('⚠️ Nodemailer desativado (modo de teste)');
+  } else {
+    console.log('✅ Nodemailer pronto');
+  }
+});
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
@@ -48,7 +67,7 @@ app.get('/login.html', (req, res) => res.sendFile(path.join(__dirname, 'public',
 app.get('/cadastro.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'cadastro.html')));
 app.get('/confirmar.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'confirmar.html')));
 
-// ✅ CADASTRO — CORRIGIDO (usa "data")
+// ✅ CADASTRO — COM NODMAILER
 app.post('/cadastro', async (req, res) => {
   const { username, email, senha } = req.body;
   const normEmail = email.toLowerCase().trim();
@@ -86,11 +105,24 @@ app.post('/cadastro', async (req, res) => {
     return res.status(500).send('Erro ao criar conta');
   }
 
-  console.log(`[CÓDIGO DE TESTE] Para ${normEmail}: ${code}`);
+  // 📧 Tenta enviar email
+  try {
+    await transporter.sendMail({
+      from: 'nukseditionofc@gmail.com',
+      to: normEmail,
+      subject: 'Código de confirmação - NuksEdition',
+      text: `Seu código é: ${code}`
+    });
+    console.log(`✅ Email enviado para ${normEmail}`);
+  } catch (emailError) {
+    console.error('Erro ao enviar email:', emailError);
+    console.log(`[CÓDIGO DE TESTE] Para ${normEmail}: ${code}`);
+  }
+
   res.redirect(`/confirmar.html?email=${encodeURIComponent(normEmail)}`);
 });
 
-// ✅ CONFIRMAÇÃO — CORRIGIDO (usa "data")
+// ✅ CONFIRMAÇÃO — VAI PARA /home
 app.post('/confirmar', async (req, res) => {
   const { email, codigo } = req.body;
   const normEmail = email.toLowerCase().trim();
@@ -127,10 +159,10 @@ app.post('/confirmar', async (req, res) => {
   }
 
   setAuthCookie(res, normEmail);
-  res.redirect('/home');
+  res.redirect('/home'); // ✅ VAI PARA HOME
 });
 
-// ✅ LOGIN — CORRIGIDO (usa "data")
+// ✅ LOGIN — VAI PARA /home
 app.post('/login', async (req, res) => {
   const { email, senha } = req.body;
   const normEmail = email.toLowerCase().trim();
@@ -157,7 +189,7 @@ app.post('/login', async (req, res) => {
   }
 
   setAuthCookie(res, normEmail);
-  res.redirect('/home');
+  res.redirect('/home'); // ✅ VAI PARA HOME
 });
 
 // Logout
@@ -166,14 +198,14 @@ app.get('/logout', (req, res) => {
   res.redirect('/login.html');
 });
 
-// ✅ SERVE PÁGINAS PROTEGIDAS — COM async
+// ✅ SERVE PÁGINAS PROTEGIDAS
 async function serveProtectedPage(pageName, req, res) {
   const filePath = path.join(__dirname, 'protected', pageName);
   let html = fs.readFileSync(filePath, 'utf8');
   html = html.replace(/{{username}}/g, req.user.username);
 
   if (pageName === 'noticias.html') {
-    const {  data: news, error } = await supabase
+    const {   news, error } = await supabase
       .from('news')
       .select('*')
       .order('created_at', { ascending: false });
