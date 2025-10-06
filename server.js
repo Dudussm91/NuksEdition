@@ -29,7 +29,6 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 app.use(cookieParser());
 
-// Define cookie de autenticação
 function setAuthCookie(res, email) {
   res.cookie('nuks_auth', email, {
     httpOnly: true,
@@ -39,7 +38,6 @@ function setAuthCookie(res, email) {
   });
 }
 
-// Middleware de autenticação
 async function requireAuth(req, res, next) {
   const email = req.cookies?.nuks_auth;
   if (!email) return res.redirect('/login.html');
@@ -67,19 +65,19 @@ app.get('/confirmar.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'confirmar.html'));
 });
 
-// ✅ CADASTRO
+// ✅ CADASTRO — CORRIGIDO
 app.post('/cadastro', async (req, res) => {
   const { username, email, senha } = req.body;
   const normEmail = email.toLowerCase().trim();
 
-  const {  users, error: checkError } = await supabase
+  const { data, error } = await supabase
     .from('users')
     .select('email')
     .eq('email', normEmail);
 
-  if (checkError) return res.status(500).send('Erro interno');
+  if (error) return res.status(500).send('Erro interno');
 
-  if (users.length > 0) {
+  if (data.length > 0) {
     return res.send(`
       <script>
         alert("Usuário já cadastrado");
@@ -98,7 +96,7 @@ app.post('/cadastro', async (req, res) => {
       text: `Seu código: ${code}`
     });
   } catch (e) {
-    console.error('Erro email:', e);
+    console.error('Erro ao enviar email:', e);
     return res.status(500).send('Erro ao enviar código');
   }
 
@@ -115,18 +113,18 @@ app.post('/cadastro', async (req, res) => {
   res.redirect(`/confirmar.html?email=${encodeURIComponent(normEmail)}`);
 });
 
-// ✅ CONFIRMAÇÃO
+// ✅ CONFIRMAÇÃO — CORRIGIDO
 app.post('/confirmar', async (req, res) => {
   const { email, codigo } = req.body;
   const normEmail = email.toLowerCase().trim();
 
-  const {  users, error } = await supabase
+  const { data, error } = await supabase
     .from('users')
     .select('*')
     .eq('email', normEmail)
     .eq('verification_code', codigo);
 
-  if (error || users.length === 0) {
+  if (error || data.length === 0) {
     return res.send(`
       <script>
         alert("Código inválido");
@@ -138,25 +136,25 @@ app.post('/confirmar', async (req, res) => {
   await supabase
     .from('users')
     .update({ confirmed: true, verification_code: null })
-    .eq('id', users[0].id);
+    .eq('id', data[0].id);
 
   setAuthCookie(res, normEmail);
-  res.redirect('/home'); // ✅ Redireciona para /home
+  res.redirect('/home');
 });
 
-// ✅ LOGIN
+// ✅ LOGIN — CORRIGIDO
 app.post('/login', async (req, res) => {
   const { email, senha } = req.body;
   const normEmail = email.toLowerCase().trim();
 
-  const {  users, error } = await supabase
+  const { data, error } = await supabase
     .from('users')
     .select('email')
     .eq('email', normEmail)
     .eq('senha', senha)
     .eq('confirmed', true);
 
-  if (error || users.length === 0) {
+  if (error || data.length === 0) {
     return res.send(`
       <script>
         alert("Usuário não cadastrado ou não confirmado");
@@ -166,70 +164,64 @@ app.post('/login', async (req, res) => {
   }
 
   setAuthCookie(res, normEmail);
-  res.redirect('/home'); // ✅ Redireciona para /home
+  res.redirect('/home');
 });
 
-// Logout
 app.get('/logout', (req, res) => {
   res.clearCookie('nuks_auth');
   res.redirect('/login.html');
 });
 
-// ✅ SERVE PÁGINAS PROTEGIDAS COM NOME DO USUÁRIO
-function serveProtectedPage(pageName, req, res) {
+// ✅ SERVE PÁGINAS PROTEGIDAS
+async function serveProtectedPage(pageName, req, res) {
   const filePath = path.join(__dirname, 'protected', pageName);
   let html = fs.readFileSync(filePath, 'utf8');
   html = html.replace(/{{username}}/g, req.user.username);
 
   if (pageName === 'noticias.html') {
-    supabase
+    const { data: news, error } = await supabase
       .from('news')
       .select('*')
-      .order('created_at', { ascending: false })
-      .then(({  news }) => {
-        const newsList = (news || []).map(item => `
-          <div class="news-item">
-            <div class="news-title">${item.title}</div>
-            <img src="${item.image_url}" class="news-image">
-            ${item.description ? `<div class="news-desc">${item.description}</div>` : ''}
-            ${req.user.email === 'nukseditionofc@gmail.com' ? `
-              <div class="news-actions">
-                <form method="post" action="/noticias/excluir/${item.id}" style="display:inline;" onsubmit="return confirm('Excluir?');">
-                  <button type="submit" class="btn-delete">Excluir</button>
-                </form>
-              </div>
-            ` : ''}
-          </div>
-        `).join('') || '<p>Nenhuma notícia.</p>';
+      .order('created_at', { ascending: false });
 
-        const publishSection = req.user.email === 'nukseditionofc@gmail.com' ? `
-          <div id="publish-section">
-            <h2>Publicar Nova Notícia</h2>
-            <form method="post" action="/noticias/publicar">
-              <div class="form-group">
-                <label>Título *</label>
-                <input type="text" name="title" required>
-              </div>
-              <div class="form-group">
-                <label>Descrição (opcional)</label>
-                <textarea name="description" rows="3"></textarea>
-              </div>
-              <button type="submit">Publicar</button>
+    const newsList = (news || []).map(item => `
+      <div class="news-item">
+        <div class="news-title">${item.title}</div>
+        <img src="${item.image_url}" class="news-image">
+        ${item.description ? `<div class="news-desc">${item.description}</div>` : ''}
+        ${req.user.email === 'nukseditionofc@gmail.com' ? `
+          <div class="news-actions">
+            <form method="post" action="/noticias/excluir/${item.id}" style="display:inline;" onsubmit="return confirm('Excluir?');">
+              <button type="submit" class="btn-delete">Excluir</button>
             </form>
           </div>
-        ` : '';
+        ` : ''}
+      </div>
+    `).join('') || '<p>Nenhuma notícia.</p>';
 
-        html = html
-          .replace('<div id="publish-section"></div>', publishSection)
-          .replace('<div id="news-list"></div>', `<div id="news-list">${newsList}</div>`);
-        res.send(html);
-      })
-      .catch(() => {
-        res.send(html.replace('<div id="news-list"></div>', '<p>Erro ao carregar notícias.</p>'));
-      });
-  } else {
-    res.send(html);
+    const publishSection = req.user.email === 'nukseditionofc@gmail.com' ? `
+      <div id="publish-section">
+        <h2>Publicar Nova Notícia</h2>
+        <form method="post" action="/noticias/publicar">
+          <div class="form-group">
+            <label>Título *</label>
+            <input type="text" name="title" required>
+          </div>
+          <div class="form-group">
+            <label>Descrição (opcional)</label>
+            <textarea name="description" rows="3"></textarea>
+          </div>
+          <button type="submit">Publicar</button>
+        </form>
+      </div>
+    ` : '';
+
+    html = html
+      .replace('<div id="publish-section"></div>', publishSection)
+      .replace('<div id="news-list"></div>', `<div id="news-list">${newsList}</div>`);
   }
+
+  res.send(html);
 }
 
 // ✅ ROTAS PROTEGIDAS — COM requireAuth
@@ -260,10 +252,9 @@ app.post('/noticias/excluir/:id', requireAuth, async (req, res) => {
   res.redirect('/noticias');
 });
 
-// 404
 app.use((req, res) => res.status(404).send('Página não encontrada'));
 
 // ✅ Render exige host 0.0.0.0
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`✅ Rodando em http://localhost:${PORT}`);
+  console.log(`✅ Servidor rodando em http://localhost:${PORT}`);
 });
