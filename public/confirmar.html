@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Confirmar - NuksEdition</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: Helvetica, Arial, sans-serif; }
+    body { background: #fff; color: #000; }
+    .header { background: #808080; color: white; text-align: center; width: 100%; padding: 16px 0; font-size: 24px; font-weight: bold; }
+    .container { width: 100%; max-width: 396px; margin: 40px auto 0; padding: 0 20px; }
+    h1 { font-size: 28px; font-weight: bold; margin-bottom: 16px; text-align: center; }
+    .subtitle { font-size: 16px; color: #333; margin-bottom: 8px; text-align: center; }
+    .email-display { font-size: 14px; color: #555; margin-bottom: 16px; text-align: center; font-style: italic; }
+    .input-group { margin-bottom: 12px; }
+    input { width: 100%; padding: 12px; border: 1px solid #000; font-size: 16px; background: white; border-radius: 0; text-align: center; }
+    button { width: 100%; padding: 12px; background: #808080; color: white; border: none; font-size: 16px; font-weight: bold; margin-top: 12px; cursor: pointer; border-radius: 0; }
+  </style>
+</head>
+<body>
+  <div class="header">NuksEdition</div>
+  <div class="container">
+    <h1>Confirmar</h1>
+    <p class="subtitle">Enviamos um código para seu email</p>
+    <p class="email-display" id="email-display">Carregando...</p>
+    <form method="post" action="/confirmar">
+      <input type="hidden" name="email" id="email-input">
+      <div class="input-group">
+        <input type="text" name="codigo" placeholder="Os 6 digitos" maxlength="6" inputmode="numeric" required>
+      </div>
+      <button type="submit">Criar</button>
+    </form>
+  </div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const email = urlParams.get('email');
+    if (email) {
+      document.getElementById('email-input').value = email;
+      document.getElementById('email-display').textContent = email;
+    } else {
+      alert("Nenhum email encontrado.");
+      window.location.href = "/cadastro.html";
+    }
+  </script>
+</body>
+</html>

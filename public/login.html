@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - NuksEdition</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: Helvetica, Arial, sans-serif; }
+    body { background: #fff; color: #000; }
+    .header { background: #808080; color: white; text-align: center; width: 100%; padding: 16px 0; font-size: 24px; font-weight: bold; }
+    .container { width: 100%; max-width: 396px; margin: 40px auto 0; padding: 0 20px; }
+    h1 { font-size: 28px; font-weight: bold; margin-bottom: 16px; text-align: center; }
+    .input-group { margin-bottom: 12px; }
+    input { width: 100%; padding: 12px; border: 1px solid #000; font-size: 16px; background: white; border-radius: 0; }
+    button { width: 100%; padding: 12px; background: #808080; color: white; border: none; font-size: 16px; font-weight: bold; margin-top: 12px; cursor: pointer; border-radius: 0; }
+    .link { display: block; text-align: center; margin-top: 16px; color: #000; text-decoration: none; font-size: 14px; }
+    .link:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="header">NuksEdition</div>
+  <div class="container">
+    <h1>Login</h1>
+    <form method="post" action="/login">
+      <div class="input-group">
+        <input type="email" name="email" placeholder="Email" required>
+      </div>
+      <div class="input-group">
+        <input type="password" name="senha" placeholder="Senha" required>
+      </div>
+      <button type="submit">Entrar</button>
+    </form>
+    <a href="cadastro.html" class="link">Não tem uma conta? cadastrar</a>
+  </div>
+</body>
+</html>

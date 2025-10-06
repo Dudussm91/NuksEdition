@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Noticias - NuksEdition</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: Helvetica, Arial, sans-serif; }
+    body { background: #fff; color: #000; }
+    .header { background: #808080; color: white; display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; font-size: 16px; }
+    .header-left { font-weight: bold; }
+    .header-right { display: flex; gap: 20px; }
+    .header-right a { color: white; text-decoration: none; font-weight: normal; }
+    .header-right a:hover { text-decoration: underline; }
+    
+    .user-section {
+      padding: 15px 20px;
+      border-bottom: 1px solid #eee;
+      background: #f9f9f9;
+    }
+    .username-display { font-weight: bold; font-size: 18px; margin-bottom: 10px; }
+    .back-link {
+      display: inline-block;
+      color: #000;
+      text-decoration: none;
+      font-weight: bold;
+      font-size: 16px;
+    }
+    .back-link:hover { text-decoration: underline; }
+
+    .content { padding: 20px; }
+    h1 { font-size: 28px; font-weight: bold; margin-bottom: 20px; text-align: center; }
+    
+    /* Formulário de publicação */
+    #publish-section { margin-bottom: 30px; padding: 20px; border: 1px solid #ccc; background: #fafafa; }
+    .form-group { margin-bottom: 12px; }
+    label { display: block; margin-bottom: 4px; font-weight: bold; }
+    input[type="text"], input[type="file"], textarea {
+      width: 100%; padding: 10px; border: 1px solid #000; font-size: 14px;
+    }
+    button { padding: 10px 20px; background: #808080; color: white; border: none; cursor: pointer; font-weight: bold; margin-right: 8px; }
+    
+    /* Lista de notícias */
+    .news-item { 
+      margin-bottom: 25px; 
+      padding: 15px; 
+      border: 1px solid #ddd; 
+      border-radius: 4px;
+      position: relative;
+    }
+    .news-title { font-size: 20px; font-weight: bold; margin-bottom: 8px; }
+    .news-image { width: 100%; max-width: 500px; height: auto; margin: 10px 0; }
+    .news-desc { color: #555; margin-top: 8px; }
+    .news-actions {
+      margin-top: 12px;
+      display: flex;
+      gap: 10px;
+    }
+    .btn-delete {
+      background: #d32f2f;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .btn-edit {
+      background: #1976d2;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-left">{{username}}</div>
+    <div class="header-right">
+      <a href="/explorar">Explorar</a>
+    </div>
+  </div>
+
+  <div class="user-section">
+    <div class="username-display">{{username}}</div>
+    <a href="/home" class="back-link">Voltar</a>
+  </div>
+  
+  <div class="content">
+    <h1>Noticias</h1>
+    <div id="publish-section"></div>
+    <div id="news-list"></div>
+  </div>
+</body>
+</html>

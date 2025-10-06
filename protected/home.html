@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Home - NuksEdition</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: Helvetica, Arial, sans-serif; }
+    body { background: #fff; color: #000; }
+    .header { background: #808080; color: white; display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; font-size: 16px; }
+    .header-left { font-weight: bold; }
+    .header-right { display: flex; gap: 20px; }
+    .header-right a { color: white; text-decoration: none; font-weight: normal; }
+    .header-right a:hover { text-decoration: underline; }
+    .content { padding: 40px 20px; text-align: center; }
+    h1 { font-size: 28px; font-weight: bold; margin-bottom: 12px; }
+    p { font-size: 20px; margin-bottom: 20px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-left">{{username}}</div>
+    <div class="header-right">
+      <a href="/explorar">Explorar</a>
+      <a href="/noticias">Noticias</a>
+    </div>
+  </div>
+  <div class="content">
+    <h1>Bem vindo a pagina inicial</h1>
+    <p>veja as noticias e lançamentos</p>
+  </div>
+</body>
+</html>
