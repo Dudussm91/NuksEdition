@@ -1,15 +1,31 @@
 const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
 const cookieParser = require('cookie-parser');
+const nodemailer = require('nodemailer');
 const path = require('path');
 const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 10000;
 
+// 🔑 Supabase
 const supabaseUrl = 'https://spyeukuqawmwaufynzzb.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNweWV1a3VxYXdtd2F1ZnluenpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk3MDcxNTcsImV4cCI6MjA3NTI4MzE1N30.6jLzCmqPLDan4xgWhwxcUnQNKyITvB2YBDHEL_GNkMQ';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// ✅ Nodemailer configurado para Render + Gmail
+const transporter = nodemailer.createTransport({
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true,
+  auth: {
+    user: 'nukseditionofc@gmail.com',
+    pass: 'srbpbdxhnwlxjueg'
+  },
+  tls: {
+    rejectUnauthorized: false
+  }
+});
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
@@ -44,30 +60,28 @@ async function requireAuth(req, res, next) {
 app.get('/', (req, res) => res.redirect('/login.html'));
 app.get('/login.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
 app.get('/cadastro.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'cadastro.html')));
-
-// ✅ ROTA GET PARA CONFIRMAR.HTML
 app.get('/confirmar.html', (req, res) => {
   const email = req.query.email;
   if (!email) return res.redirect('/cadastro.html');
   res.sendFile(path.join(__dirname, 'public', 'confirmar.html'));
 });
 
-// ✅ CADASTRO
+// ✅ CADASTRO COM EMAIL REAL
 app.post('/cadastro', async (req, res) => {
   const { username, email, senha } = req.body;
   const normEmail = email.toLowerCase().trim();
 
-  const { data, error } = await supabase
+  const {  users, error: checkError } = await supabase
     .from('users')
     .select('email')
     .eq('email', normEmail);
 
-  if (error) {
-    console.error('Erro ao verificar email:', error);
+  if (checkError) {
+    console.error('Erro ao verificar email:', checkError);
     return res.status(500).send('Erro interno');
   }
 
-  if (data.length > 0) {
+  if (users.length > 0) {
     return res.send(`
       <script>
         alert("Usuário já cadastrado");
@@ -77,7 +91,21 @@ app.post('/cadastro', async (req, res) => {
   }
 
   const code = Math.floor(100000 + Math.random() * 900000).toString();
-  const insertResult = await supabase.from('users').insert({
+
+  // ✅ Envia email REAL para o usuário
+  try {
+    await transporter.sendMail({
+      from: '"NuksEdition" <nukseditionofc@gmail.com>',
+      to: normEmail,
+      subject: 'Código de Confirmação - NuksEdition',
+      text: `Olá! Seu código de confirmação é: ${code}\n\nNão compartilhe este código.`
+    });
+  } catch (emailError) {
+    console.error('Erro ao enviar email:', emailError);
+    return res.status(500).send('Erro ao enviar código de confirmação');
+  }
+
+  const { error: insertError } = await supabase.from('users').insert({
     username: username.trim(),
     email: normEmail,
     senha: senha,
@@ -85,12 +113,11 @@ app.post('/cadastro', async (req, res) => {
     verification_code: code
   });
 
-  if (insertResult.error) {
-    console.error('Erro ao inserir:', insertResult.error);
+  if (insertError) {
+    console.error('Erro ao inserir usuário:', insertError);
     return res.status(500).send('Erro ao criar conta');
   }
 
-  console.log(`[CÓDIGO] ${normEmail}: ${code}`);
   res.redirect(`/confirmar.html?email=${encodeURIComponent(normEmail)}`);
 });
 
@@ -99,18 +126,18 @@ app.post('/confirmar', async (req, res) => {
   const { email, codigo } = req.body;
   const normEmail = email.toLowerCase().trim();
 
-  const { data, error } = await supabase
+  const {  users, error: confirmError } = await supabase
     .from('users')
     .select('*')
     .eq('email', normEmail)
     .eq('verification_code', codigo);
 
-  if (error) {
-    console.error('Erro na confirmação:', error);
+  if (confirmError) {
+    console.error('Erro na confirmação:', confirmError);
     return res.status(500).send('Erro na confirmação');
   }
 
-  if (data.length === 0) {
+  if (users.length === 0) {
     return res.send(`
       <script>
         alert("Código inválido");
@@ -119,14 +146,14 @@ app.post('/confirmar', async (req, res) => {
     `);
   }
 
-  const updateResult = await supabase
+  const { error: updateError } = await supabase
     .from('users')
     .update({ confirmed: true, verification_code: null })
-    .eq('id', data[0].id);
+    .eq('id', users[0].id);
 
-  if (updateResult.error) {
-    console.error('Erro ao confirmar:', updateResult.error);
-    return res.status(500).send('Erro ao confirmar');
+  if (updateError) {
+    console.error('Erro ao confirmar:', updateError);
+    return res.status(500).send('Erro ao confirmar conta');
   }
 
   setAuthCookie(res, normEmail);
@@ -138,19 +165,19 @@ app.post('/login', async (req, res) => {
   const { email, senha } = req.body;
   const normEmail = email.toLowerCase().trim();
 
-  const { data, error } = await supabase
+  const {  users, error: loginError } = await supabase
     .from('users')
     .select('email')
     .eq('email', normEmail)
     .eq('senha', senha)
     .eq('confirmed', true);
 
-  if (error) {
-    console.error('Erro no login:', error);
+  if (loginError) {
+    console.error('Erro no login:', loginError);
     return res.status(500).send('Erro no login');
   }
 
-  if (data.length === 0) {
+  if (users.length === 0) {
     return res.send(`
       <script>
         alert("Usuário não cadastrado ou não confirmado");
@@ -174,7 +201,7 @@ async function serveProtectedPage(pageName, req, res) {
   html = html.replace(/{{username}}/g, req.user.username);
 
   if (pageName === 'noticias.html') {
-    const { data: news, error } = await supabase
+    const {  news, error } = await supabase
       .from('news')
       .select('*')
       .order('created_at', { ascending: false });
@@ -192,7 +219,7 @@ async function serveProtectedPage(pageName, req, res) {
           </div>
         ` : ''}
       </div>
-    `).join('') || '<p>Nenhuma notícia.</p>';
+    `).join('') || '<p>Nenhuma notícia publicada ainda.</p>';
 
     const publishSection = req.user.email === 'nukseditionofc@gmail.com' ? `
       <div id="publish-section">
@@ -248,5 +275,5 @@ app.post('/noticias/excluir/:id', requireAuth, async (req, res) => {
 app.use((req, res) => res.status(404).send('Página não encontrada'));
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`✅ Rodando em http://localhost:${PORT}`);
+  console.log(`✅ Servidor rodando em http://localhost:${PORT}`);
 });
