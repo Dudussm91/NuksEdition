@@ -25,6 +25,7 @@ function setAuthCookie(res, email) {
   });
 }
 
+// Middleware de autenticação (só para páginas protegidas)
 async function requireAuth(req, res, next) {
   const email = req.cookies?.nuks_auth;
   if (!email) return res.redirect('/login.html');
@@ -46,14 +47,33 @@ async function requireAuth(req, res, next) {
 app.get('/', (req, res) => res.redirect('/login.html'));
 app.get('/login.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
 app.get('/cadastro.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'cadastro.html')));
-app.get('/confirmar.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'confirmar.html')));
 
-// ✅ CADASTRO — CORRIGIDO
+// ✅ ROTA GET PARA CONFIRMAR.HTML (pública, mas com validação)
+app.get('/confirmar.html', async (req, res) => {
+  const email = req.query.email;
+  if (!email) {
+    return res.redirect('/cadastro.html');
+  }
+
+  const {  users, error } = await supabase
+    .from('users')
+    .select('email')
+    .eq('email', email.toLowerCase().trim());
+
+  if (error || users.length === 0) {
+    return res.redirect('/cadastro.html');
+  }
+
+  // Serve a página estática
+  res.sendFile(path.join(__dirname, 'public', 'confirmar.html'));
+});
+
+// ✅ CADASTRO
 app.post('/cadastro', async (req, res) => {
   const { username, email, senha } = req.body;
   const normEmail = email.toLowerCase().trim();
 
-  const {  existingUsers, error: checkError } = await supabase
+  const {  users, error: checkError } = await supabase
     .from('users')
     .select('email')
     .eq('email', normEmail);
@@ -63,7 +83,7 @@ app.post('/cadastro', async (req, res) => {
     return res.status(500).send('Erro interno');
   }
 
-  if (existingUsers.length > 0) {
+  if (users.length > 0) {
     return res.send(`
       <script>
         alert("Usuário já cadastrado");
@@ -90,7 +110,7 @@ app.post('/cadastro', async (req, res) => {
   res.redirect(`/confirmar.html?email=${encodeURIComponent(normEmail)}`);
 });
 
-// ✅ CONFIRMAÇÃO — CORRIGIDO
+// ✅ CONFIRMAÇÃO
 app.post('/confirmar', async (req, res) => {
   const { email, codigo } = req.body;
   const normEmail = email.toLowerCase().trim();
@@ -116,21 +136,26 @@ app.post('/confirmar', async (req, res) => {
   }
 
   const user = users[0];
-  await supabase
+  const { error: updateError } = await supabase
     .from('users')
     .update({ confirmed: true, verification_code: null })
     .eq('id', user.id);
+
+  if (updateError) {
+    console.error('Erro ao confirmar usuário:', updateError);
+    return res.status(500).send('Erro ao confirmar conta');
+  }
 
   setAuthCookie(res, normEmail);
   res.redirect('/home');
 });
 
-// ✅ LOGIN — CORRIGIDO
+// ✅ LOGIN
 app.post('/login', async (req, res) => {
   const { email, senha } = req.body;
   const normEmail = email.toLowerCase().trim();
 
-  const {  matchedUsers, error: loginError } = await supabase
+  const {  users, error: loginError } = await supabase
     .from('users')
     .select('email')
     .eq('email', normEmail)
@@ -142,7 +167,7 @@ app.post('/login', async (req, res) => {
     return res.status(500).send('Erro no login');
   }
 
-  if (matchedUsers.length === 0) {
+  if (users.length === 0) {
     return res.send(`
       <script>
         alert("Usuário não cadastrado ou não confirmado");
@@ -161,7 +186,7 @@ app.get('/logout', (req, res) => {
   res.redirect('/login.html');
 });
 
-// ✅ SERVE PÁGINAS PROTEGIDAS — COM async
+// ✅ SERVE PÁGINAS PROTEGIDAS
 async function serveProtectedPage(pageName, req, res) {
   const filePath = path.join(__dirname, 'protected', pageName);
   let html = fs.readFileSync(filePath, 'utf8');
@@ -173,10 +198,7 @@ async function serveProtectedPage(pageName, req, res) {
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Erro ao carregar notícias:', error);
-      news = [];
-    }
+    if (error) news = [];
 
     let newsList = news.length > 0 ? 
       news.map(item => `
@@ -255,4 +277,3 @@ app.use((req, res) => res.status(404).send('Página não encontrada'));
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Rodando em http://localhost:${PORT}`);
 });
-
