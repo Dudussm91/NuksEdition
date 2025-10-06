@@ -1,7 +1,6 @@
 const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
 const cookieParser = require('cookie-parser');
-const nodemailer = require('nodemailer');
 const path = require('path');
 const fs = require('fs');
 
@@ -12,24 +11,6 @@ const PORT = process.env.PORT || 10000;
 const supabaseUrl = 'https://spyeukuqawmwaufynzzb.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNweWV1a3VxYXdtd2F1ZnluenpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk3MDcxNTcsImV4cCI6MjA3NTI4MzE1N30.6jLzCmqPLDan4xgWhwxcUnQNKyITvB2YBDHEL_GNkMQ';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-// 📧 Nodemailer (com fallback para console se falhar)
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: 'nukseditionofc@gmail.com',
-    pass: 'srbpbdxhnwlxjueg'
-  }
-});
-
-// Verifica se o email funciona
-transporter.verify((error) => {
-  if (error) {
-    console.log('⚠️ Nodemailer desativado (modo de teste)');
-  } else {
-    console.log('✅ Nodemailer pronto');
-  }
-});
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
@@ -67,22 +48,22 @@ app.get('/login.html', (req, res) => res.sendFile(path.join(__dirname, 'public',
 app.get('/cadastro.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'cadastro.html')));
 app.get('/confirmar.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'confirmar.html')));
 
-// ✅ CADASTRO — COM NODMAILER
+// ✅ CADASTRO — CORRIGIDO
 app.post('/cadastro', async (req, res) => {
   const { username, email, senha } = req.body;
   const normEmail = email.toLowerCase().trim();
 
-  const {  data, error } = await supabase
+  const {  existingUsers, error: checkError } = await supabase
     .from('users')
     .select('email')
     .eq('email', normEmail);
 
-  if (error) {
-    console.error('Erro ao verificar email:', error);
+  if (checkError) {
+    console.error('Erro ao verificar email:', checkError);
     return res.status(500).send('Erro interno');
   }
 
-  if (data.length > 0) {
+  if (existingUsers.length > 0) {
     return res.send(`
       <script>
         alert("Usuário já cadastrado");
@@ -105,40 +86,27 @@ app.post('/cadastro', async (req, res) => {
     return res.status(500).send('Erro ao criar conta');
   }
 
-  // 📧 Tenta enviar email
-  try {
-    await transporter.sendMail({
-      from: 'nukseditionofc@gmail.com',
-      to: normEmail,
-      subject: 'Código de confirmação - NuksEdition',
-      text: `Seu código é: ${code}`
-    });
-    console.log(`✅ Email enviado para ${normEmail}`);
-  } catch (emailError) {
-    console.error('Erro ao enviar email:', emailError);
-    console.log(`[CÓDIGO DE TESTE] Para ${normEmail}: ${code}`);
-  }
-
+  console.log(`[CÓDIGO DE TESTE] Para ${normEmail}: ${code}`);
   res.redirect(`/confirmar.html?email=${encodeURIComponent(normEmail)}`);
 });
 
-// ✅ CONFIRMAÇÃO — VAI PARA /home
+// ✅ CONFIRMAÇÃO — CORRIGIDO
 app.post('/confirmar', async (req, res) => {
   const { email, codigo } = req.body;
   const normEmail = email.toLowerCase().trim();
 
-  const {  data, error } = await supabase
+  const {  users, error: confirmError } = await supabase
     .from('users')
     .select('*')
     .eq('email', normEmail)
     .eq('verification_code', codigo);
 
-  if (error) {
-    console.error('Erro na confirmação:', error);
+  if (confirmError) {
+    console.error('Erro na confirmação:', confirmError);
     return res.status(500).send('Erro na confirmação');
   }
 
-  if (data.length === 0) {
+  if (users.length === 0) {
     return res.send(`
       <script>
         alert("Código inválido");
@@ -147,39 +115,34 @@ app.post('/confirmar', async (req, res) => {
     `);
   }
 
-  const user = data[0];
-  const { error: updateError } = await supabase
+  const user = users[0];
+  await supabase
     .from('users')
     .update({ confirmed: true, verification_code: null })
     .eq('id', user.id);
 
-  if (updateError) {
-    console.error('Erro ao confirmar usuário:', updateError);
-    return res.status(500).send('Erro ao confirmar conta');
-  }
-
   setAuthCookie(res, normEmail);
-  res.redirect('/home'); // ✅ VAI PARA HOME
+  res.redirect('/home');
 });
 
-// ✅ LOGIN — VAI PARA /home
+// ✅ LOGIN — CORRIGIDO
 app.post('/login', async (req, res) => {
   const { email, senha } = req.body;
   const normEmail = email.toLowerCase().trim();
 
-  const {  data, error } = await supabase
+  const {  matchedUsers, error: loginError } = await supabase
     .from('users')
     .select('email')
     .eq('email', normEmail)
     .eq('senha', senha)
     .eq('confirmed', true);
 
-  if (error) {
-    console.error('Erro no login:', error);
+  if (loginError) {
+    console.error('Erro no login:', loginError);
     return res.status(500).send('Erro no login');
   }
 
-  if (data.length === 0) {
+  if (matchedUsers.length === 0) {
     return res.send(`
       <script>
         alert("Usuário não cadastrado ou não confirmado");
@@ -189,7 +152,7 @@ app.post('/login', async (req, res) => {
   }
 
   setAuthCookie(res, normEmail);
-  res.redirect('/home'); // ✅ VAI PARA HOME
+  res.redirect('/home');
 });
 
 // Logout
@@ -198,14 +161,14 @@ app.get('/logout', (req, res) => {
   res.redirect('/login.html');
 });
 
-// ✅ SERVE PÁGINAS PROTEGIDAS
+// ✅ SERVE PÁGINAS PROTEGIDAS — COM async
 async function serveProtectedPage(pageName, req, res) {
   const filePath = path.join(__dirname, 'protected', pageName);
   let html = fs.readFileSync(filePath, 'utf8');
   html = html.replace(/{{username}}/g, req.user.username);
 
   if (pageName === 'noticias.html') {
-    const {   news, error } = await supabase
+    const {  news, error } = await supabase
       .from('news')
       .select('*')
       .order('created_at', { ascending: false });
@@ -290,5 +253,6 @@ app.use((req, res) => res.status(404).send('Página não encontrada'));
 
 // Render exige host 0.0.0.0
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`✅ Servidor rodando em http://localhost:${PORT}`);
+  console.log(`✅ Rodando em http://localhost:${PORT}`);
 });
+
