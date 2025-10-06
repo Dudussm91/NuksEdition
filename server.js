@@ -48,22 +48,22 @@ app.get('/login.html', (req, res) => res.sendFile(path.join(__dirname, 'public',
 app.get('/cadastro.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'cadastro.html')));
 app.get('/confirmar.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'confirmar.html')));
 
-// ✅ CADASTRO — CORRIGIDO TOTALMENTE
+// ✅ CADASTRO — CORRIGIDO (usa "data")
 app.post('/cadastro', async (req, res) => {
   const { username, email, senha } = req.body;
   const normEmail = email.toLowerCase().trim();
 
-  const { data: users, error: checkError } = await supabase
+  const {  data, error } = await supabase
     .from('users')
     .select('email')
     .eq('email', normEmail);
 
-  if (checkError) {
-    console.error('Erro ao verificar email:', checkError);
+  if (error) {
+    console.error('Erro ao verificar email:', error);
     return res.status(500).send('Erro interno');
   }
 
-  if (users.length > 0) {
+  if (data.length > 0) {
     return res.send(`
       <script>
         alert("Usuário já cadastrado");
@@ -90,23 +90,23 @@ app.post('/cadastro', async (req, res) => {
   res.redirect(`/confirmar.html?email=${encodeURIComponent(normEmail)}`);
 });
 
-// ✅ CONFIRMAÇÃO — CORRIGIDO TOTALMENTE
+// ✅ CONFIRMAÇÃO — CORRIGIDO (usa "data")
 app.post('/confirmar', async (req, res) => {
   const { email, codigo } = req.body;
   const normEmail = email.toLowerCase().trim();
 
-  const { data: users, error: confirmError } = await supabase
+  const {  data, error } = await supabase
     .from('users')
     .select('*')
     .eq('email', normEmail)
     .eq('verification_code', codigo);
 
-  if (confirmError) {
-    console.error('Erro na confirmação:', confirmError);
+  if (error) {
+    console.error('Erro na confirmação:', error);
     return res.status(500).send('Erro na confirmação');
   }
 
-  if (users.length === 0) {
+  if (data.length === 0) {
     return res.send(`
       <script>
         alert("Código inválido");
@@ -115,7 +115,7 @@ app.post('/confirmar', async (req, res) => {
     `);
   }
 
-  const user = users[0];
+  const user = data[0];
   const { error: updateError } = await supabase
     .from('users')
     .update({ confirmed: true, verification_code: null })
@@ -130,59 +130,24 @@ app.post('/confirmar', async (req, res) => {
   res.redirect('/home');
 });
 
-// ✅ CONFIRMAÇÃO — CORRIGIDO
-app.post('/confirmar', async (req, res) => {
-  const { email, codigo } = req.body;
-  const normEmail = email.toLowerCase().trim();
-
-  const {  users, error: confirmError } = await supabase
-    .from('users')
-    .select('*')
-    .eq('email', normEmail)
-    .eq('verification_code', codigo);
-
-  if (confirmError) {
-    console.error('Erro na confirmação:', confirmError);
-    return res.status(500).send('Erro na confirmação');
-  }
-
-  if (users.length === 0) {
-    return res.send(`
-      <script>
-        alert("Código inválido");
-        window.location.href = "/confirmar.html?email=${encodeURIComponent(normEmail)}";
-      </script>
-    `);
-  }
-
-  const user = users[0];
-  await supabase
-    .from('users')
-    .update({ confirmed: true, verification_code: null })
-    .eq('id', user.id);
-
-  setAuthCookie(res, normEmail);
-  res.redirect('/home');
-});
-
-// ✅ LOGIN — CORRIGIDO
+// ✅ LOGIN — CORRIGIDO (usa "data")
 app.post('/login', async (req, res) => {
   const { email, senha } = req.body;
   const normEmail = email.toLowerCase().trim();
 
-  const {  matchedUsers, error: loginError } = await supabase
+  const {  data, error } = await supabase
     .from('users')
     .select('email')
     .eq('email', normEmail)
     .eq('senha', senha)
     .eq('confirmed', true);
 
-  if (loginError) {
-    console.error('Erro no login:', loginError);
+  if (error) {
+    console.error('Erro no login:', error);
     return res.status(500).send('Erro no login');
   }
 
-  if (matchedUsers.length === 0) {
+  if (data.length === 0) {
     return res.send(`
       <script>
         alert("Usuário não cadastrado ou não confirmado");
@@ -208,7 +173,7 @@ async function serveProtectedPage(pageName, req, res) {
   html = html.replace(/{{username}}/g, req.user.username);
 
   if (pageName === 'noticias.html') {
-    const {  news, error } = await supabase
+    const {  data: news, error } = await supabase
       .from('news')
       .select('*')
       .order('created_at', { ascending: false });
@@ -293,6 +258,5 @@ app.use((req, res) => res.status(404).send('Página não encontrada'));
 
 // Render exige host 0.0.0.0
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`✅ Rodando em http://localhost:${PORT}`);
+  console.log(`✅ Servidor rodando em http://localhost:${PORT}`);
 });
-
