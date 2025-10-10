@@ -10,7 +10,7 @@ const multer = require('multer');
 const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
-const PORT = process.env.PORT || 3000; // ⚠️ Render define PORT automaticamente
+const PORT = process.env.PORT || 3000;
 
 // Configurações do .env
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -45,16 +45,13 @@ app.use(cookieParser());
 app.use('/uploads', express.static(UPLOADS_DIR));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Sessão temporária para confirmação (em memória)
-let pendingConfirmations = {};
-
 // Nodemailer
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
 });
 
-// 👇 ROTA RAIZ: redireciona para login
+// 👇 ROTA RAIZ
 app.get('/', (req, res) => {
   res.redirect('/login');
 });
@@ -113,19 +110,15 @@ app.get('/explorar', auth, (req, res) => {
 app.get('/noticias', auth, async (req, res) => {
   let html = fs.readFileSync(path.join(PROTECT_VIEWS, 'noticias.html'), 'utf8');
   html = html.replace('Nome de usuario', req.user.username);
-
-  const {  noticias, error } = await supabase
+  const { data: noticias, error } = await supabase
     .from('noticias')
     .select('*')
     .order('data_publicacao', { ascending: false });
-
   if (error) {
     console.error('Erro ao buscar notícias:', error);
     return res.status(500).send('Erro ao carregar notícias.');
   }
-
   let conteudo = '';
-
   if (req.user.email === ADMIN_EMAIL) {
     conteudo += `
       <div style="max-width:600px;margin:40px auto;padding:20px;border:1px solid #ccc;text-align:left;">
@@ -139,7 +132,6 @@ app.get('/noticias', auth, async (req, res) => {
       </div>
     `;
   }
-
   conteudo += `
     <div style="text-align:center;margin-top:40px;">
       <h2>Últimas Notícias</h2>
@@ -162,12 +154,13 @@ app.get('/noticias', auth, async (req, res) => {
       }
     </div>
   `;
-
   html = html.replace('<p>Nenhuma notícia no momento.</p>', conteudo);
   res.send(html);
 });
 
 // APIs
+
+// ✅ Registro com confirmação persistente no Supabase
 app.post('/api/register', async (req, res) => {
   const { username, email, password } = req.body;
   if (!username || !email || !password)
@@ -175,7 +168,7 @@ app.post('/api/register', async (req, res) => {
   if (password.length < 6)
     return res.status(400).json({ error: 'Senha deve ter no mínimo 6 caracteres.' });
 
-  const {  existingUser, error: fetchError } = await supabase
+  const { data: existingUser, error: fetchError } = await supabase
     .from('usuarios')
     .select('email')
     .eq('email', email)
@@ -184,84 +177,122 @@ app.post('/api/register', async (req, res) => {
     return res.status(400).json({ error: 'Conta já cadastrada.' });
   }
 
+  // Verificar se já existe confirmação pendente
+  const { data: pending, error: pendingError } = await supabase
+    .from('confirmacoes_pendentes')
+    .select('email')
+    .eq('email', email)
+    .single();
+
   const code = Math.floor(100000 + Math.random() * 900000).toString();
   const hash = await bcrypt.hash(password, 10);
-  pendingConfirmations[email] = { code, username, hash };
+
+  // Inserir ou atualizar confirmação pendente
+  const { error: insertError } = await supabase
+    .from('confirmacoes_pendentes')
+    .upsert({
+      email,
+      username,
+      senha_hash: hash,
+      codigo: code,
+      expira_em: new Date(Date.now() + 10 * 60 * 1000).toISOString() // 10 minutos
+    }, { onConflict: 'email' });
+
+  if (insertError) {
+    console.error('Erro ao salvar confirmação:', insertError);
+    return res.status(500).json({ error: 'Erro ao processar cadastro.' });
+  }
 
   try {
     await transporter.sendMail({
       from: process.env.EMAIL_USER,
       to: email,
       subject: 'Confirme seu cadastro',
-      html: `<h2>Seu código: ${code}</h2>`
+      html: `<h2>Seu código de confirmação: <strong>${code}</strong></h2><p>Este código expira em 10 minutos.</p>`
     });
   } catch (err) {
     console.error('Erro ao enviar e-mail:', err);
     return res.status(500).json({ error: 'Erro ao enviar e-mail.' });
   }
 
-  res.cookie('pending_email', email, { httpOnly: true, maxAge: 600000 });
+  res.cookie('pending_email', email, { httpOnly: true, maxAge: 10 * 60 * 1000 }); // 10 minutos
   res.json({ success: true });
 });
 
+// ✅ Confirmação com dados do Supabase
 app.post('/api/confirm', async (req, res) => {
   const { code } = req.body;
   const email = req.cookies.pending_email;
   if (!email || !code)
     return res.status(400).json({ error: 'Sessão expirada.' });
 
-  const p = pendingConfirmations[email];
-  if (!p || p.code !== code)
-    return res.status(400).json({ error: 'Código inválido.' });
+  const { data: pending, error } = await supabase
+    .from('confirmacoes_pendentes')
+    .select('*')
+    .eq('email', email)
+    .single();
 
-  const { error } = await supabase
+  if (error || !pending) {
+    return res.status(400).json({ error: 'Nenhuma confirmação encontrada.' });
+  }
+
+  if (pending.codigo !== code) {
+    return res.status(400).json({ error: 'Código inválido.' });
+  }
+
+  if (new Date(pending.expira_em) < new Date()) {
+    await supabase.from('confirmacoes_pendentes').delete().eq('email', email);
+    return res.status(400).json({ error: 'Código expirado.' });
+  }
+
+  // Criar usuário
+  const { error: insertError } = await supabase
     .from('usuarios')
     .insert({
-      username: p.username,
-      email: email,
-      senha_hash: p.hash
+      username: pending.username,
+      email: pending.email,
+      senha_hash: pending.senha_hash
     });
 
-  if (error) {
-    console.error('Erro ao inserir usuário:', error);
+  if (insertError) {
+    console.error('Erro ao inserir usuário:', insertError);
     return res.status(500).json({ error: 'Erro ao confirmar cadastro.' });
   }
 
-  delete pendingConfirmations[email];
-  const token = jwt.sign({ username: p.username, email }, JWT_SECRET, { expiresIn: '24h' });
+  // Remover confirmação pendente
+  await supabase.from('confirmacoes_pendentes').delete().eq('email', email);
+
+  const token = jwt.sign({ username: pending.username, email: pending.email }, JWT_SECRET, { expiresIn: '24h' });
   res.cookie('token', token, { httpOnly: true, maxAge: 86400000 });
   res.json({ success: true });
 });
 
+// Login
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
-  const {  user, error } = await supabase
+  const { data: user, error } = await supabase
     .from('usuarios')
     .select('email, senha_hash, username')
     .eq('email', email)
     .single();
-
   if (error || !user) {
     return res.status(400).json({ error: 'Conta não cadastrada.' });
   }
-
   const valid = await bcrypt.compare(password, user.senha_hash);
   if (!valid) return res.status(400).json({ error: 'Senha incorreta.' });
-
   const token = jwt.sign({ username: user.username, email: user.email }, JWT_SECRET, { expiresIn: '24h' });
   res.cookie('token', token, { httpOnly: true, maxAge: 86400000 });
   res.json({ success: true });
 });
 
+// Publicar notícia
 app.post('/api/noticias', auth, upload.single('imagem'), async (req, res) => {
   if (req.user.email !== ADMIN_EMAIL)
     return res.status(403).json({ error: 'Acesso negado.' });
-
   const { titulo, descricao } = req.body;
   const imagem = req.file;
   if (!titulo || !imagem)
     return res.status(400).json({ error: 'Título e imagem são obrigatórios.' });
-
   const { error } = await supabase
     .from('noticias')
     .insert({
@@ -270,39 +301,36 @@ app.post('/api/noticias', auth, upload.single('imagem'), async (req, res) => {
       imagem_url: `/uploads/${imagem.filename}`,
       autor_email: ADMIN_EMAIL
     });
-
   if (error) {
     console.error('Erro ao publicar notícia:', error);
     return res.status(500).json({ error: 'Falha ao publicar notícia.' });
   }
-
   res.json({ success: true });
 });
 
+// Excluir notícia
 app.delete('/api/noticias/:id', auth, async (req, res) => {
   if (req.user.email !== ADMIN_EMAIL)
     return res.status(403).json({ error: 'Acesso negado.' });
-
   const id = parseInt(req.params.id);
   const { error } = await supabase
     .from('noticias')
     .delete()
     .eq('id', id);
-
   if (error) {
     console.error('Erro ao excluir notícia:', error);
     return res.status(500).json({ error: 'Falha ao excluir notícia.' });
   }
-
   res.json({ success: true });
 });
 
+// Logout
 app.get('/logout', (req, res) => {
   res.clearCookie('token');
   res.redirect('/login');
 });
 
-// 404 fallback
+// 404
 app.use((req, res) => {
   res.status(404).send('<h1>404 - Página não encontrada</h1>');
 });
