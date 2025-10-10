@@ -1,44 +1,211 @@
-app.get('/noticias', auth, (req, res) => {
-  let html = fs.readFileSync(path.join(PROTECT_VIEWS, 'noticias.html'), 'utf8');
-  html = html.replace('Nome de usuario', req.user.username);
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>NuksEdition - Notícias</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #fff;
+      color: #333;
+    }
+    header {
+      background: #777;
+      color: white;
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    header a {
+      color: white;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    .container {
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 20px;
+      border: 1px solid #ddd;
+    }
+    h2 {
+      text-align: center;
+      margin-top: 40px;
+    }
+    .voltar {
+      text-align: right;
+      margin: 20px 20px 0 0;
+    }
+    .voltar a {
+      color: black;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    .form-group input[type="text"],
+    .form-group textarea {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+    }
+    .form-group input[type="file"] {
+      margin-top: 5px;
+    }
+    button {
+      background: #808080;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    button:hover {
+      background: #666;
+    }
+    .news-list {
+      margin-top: 40px;
+    }
+    .news-item {
+      border: 1px solid #eee;
+      padding: 15px;
+      margin: 15px 0;
+    }
+    .news-item img {
+      max-width: 100%;
+      height: auto;
+      margin: 10px 0;
+    }
+    .news-item p.date {
+      font-size: 12px;
+      color: #666;
+      margin: 5px 0;
+    }
+    .news-item button.delete {
+      background: #c0392b;
+      padding: 5px 10px;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div><strong>NuksEdition</strong></div>
+    <a href="/explorar">Explorar</a>
+  </header>
 
-  let conteudo = '';
+  <div class="voltar">
+    <a href="/home">Voltar</a>
+  </div>
 
-  // 🔹 Se for admin, mostra o formulário primeiro
-  if (req.user.email === ADMIN_EMAIL) {
-    conteudo += `
-      <div style="max-width:600px;margin:20px auto;padding:20px;border:1px solid #ccc;text-align:left;">
-        <h2>Publicar Notícia</h2>
-        <form id="form-noticia" enctype="multipart/form-data">
-          <input type="text" id="titulo" placeholder="Título" required style="width:100%;padding:8px;margin:5px 0;">
-          <input type="file" id="imagem" accept="image/*" required style="margin:5px 0;">
-          <textarea id="descricao" placeholder="Descrição (opcional)" style="width:100%;padding:8px;margin:5px 0;height:80px;"></textarea>
-          <button type="submit" style="background:#808080;color:white;padding:10px;border:none;cursor:pointer;">Publicar</button>
-        </form>
-      </div>
-    `;
-  }
-
-  // 🔹 Depois, mostra as notícias
-  conteudo += `
-    <div style="text-align:center;margin-top:40px;">
-      <h2>Últimas Notícias</h2>
-      ${
-        noticias.length > 0
-          ? noticias.map(n => `
-            <div style="border:1px solid #eee;padding:15px;margin:15px auto;max-width:600px;text-align:left;">
-              <h3>${n.titulo}</h3>
-              <img src="${n.imagemUrl}" style="max-width:100%;height:auto;">
-              ${n.descricao ? `<p>${n.descricao}</p>` : ''}
-            </div>
-          `).join('')
-          : '<p>Nenhuma notícia no momento.</p>'
-      }
+  <!-- Formulário de publicação (só para admin) -->
+  <div id="publish-form" style="display: none;">
+    <div class="container">
+      <h2>Publicar Notícia</h2>
+      <form id="form-noticia" enctype="multipart/form-data">
+        <div class="form-group">
+          <label for="titulo">Título</label>
+          <input type="text" id="titulo" name="titulo" required>
+        </div>
+        <div class="form-group">
+          <label for="imagem">Imagem</label>
+          <input type="file" id="imagem" name="imagem" accept="image/*" required>
+        </div>
+        <div class="form-group">
+          <label for="descricao">Descrição (opcional)</label>
+          <textarea id="descricao" name="descricao" rows="4"></textarea>
+        </div>
+        <button type="submit">Publicar</button>
+      </form>
     </div>
-  `;
+  </div>
 
-  // 🔹 Substitui o corpo pelo conteúdo novo
-  html = html.replace('<p>Nenhuma notícia no momento.</p>', conteudo);
+  <!-- Listagem de notícias -->
+  <div class="news-list">
+    <h2>Últimas Notícias</h2>
+    <p id="no-news">Nenhuma notícia no momento.</p>
+    <div id="news-container"></div>
+  </div>
 
-  res.send(html);
-});
+  <script>
+    // Exibir formulário se for admin
+    if (document.body.innerHTML.includes('Nome de usuario')) {
+      const userSpan = document.querySelector('.user-info');
+      if (userSpan && userSpan.textContent.trim() === 'nukseditionofc@gmail.com') {
+        document.getElementById('publish-form').style.display = 'block';
+      }
+    }
+
+    // Carregar notícias ao carregar a página
+    async function loadNews() {
+      try {
+        const res = await fetch('/api/noticias', { method: 'GET' });
+        const noticias = await res.json();
+        const container = document.getElementById('news-container');
+        const noNews = document.getElementById('no-news');
+
+        if (noticias.length === 0) {
+          noNews.style.display = 'block';
+          container.innerHTML = '';
+        } else {
+          noNews.style.display = 'none';
+          container.innerHTML = noticias.map(n => `
+            <div class="news-item">
+              <h3>${n.titulo}</h3>
+              ${n.imagem_url ? `<img src="${n.imagem_url}" alt="Imagem da notícia">` : ''}
+              ${n.descricao ? `<p>${n.descricao}</p>` : ''}
+              <p class="date">📅 Publicado em ${new Date(n.data_publicacao).toLocaleDateString('pt-BR')}</p>
+              ${n.autor_email === 'nukseditionofc@gmail.com'
+                ? `<button class="delete" onclick="excluirNoticia(${n.id})">Excluir</button>`
+                : ''
+              }
+            </div>
+          `).join('');
+        }
+      } catch (err) {
+        console.error('Erro ao carregar notícias:', err);
+      }
+    }
+
+    // Publicar notícia
+    document.getElementById('form-noticia')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const res = await fetch('/api/noticias', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (data.success) {
+        alert('✅ Notícia publicada com sucesso!');
+        loadNews(); // Recarrega as notícias
+        e.target.reset(); // Limpa o formulário
+      } else {
+        alert('❌ Erro: ' + (data.error || 'Falha ao publicar.'));
+      }
+    });
+
+    // Excluir notícia
+    async function excluirNoticia(id) {
+      if (!confirm('Tem certeza que deseja excluir esta notícia?')) return;
+      const res = await fetch(`/api/noticias/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        alert('🗑️ Notícia excluída.');
+        loadNews(); // Recarrega as notícias
+      } else {
+        alert('❌ Erro: ' + (data.error || 'Falha ao excluir.'));
+      }
+    }
+
+    // Carregar notícias ao abrir a página
+    window.addEventListener('DOMContentLoaded', loadNews);
+  </script>
+</body>
+</html>
