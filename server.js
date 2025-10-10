@@ -13,7 +13,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Configurações do .env
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = process.env.JWT_SECRET || 'sua_chave_secreta_aqui';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
@@ -27,7 +27,9 @@ const PUBLIC_VIEWS = path.join(VIEWS_DIR, 'public');
 const PROTECT_VIEWS = path.join(VIEWS_DIR, 'protect');
 const UPLOADS_DIR = path.join(__dirname, 'public', 'uploads');
 
-if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
 
 // Multer para uploads
 const storage = multer.diskStorage({
@@ -48,10 +50,13 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Nodemailer
 const transporter = nodemailer.createTransport({
   service: 'gmail',
-  auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  }
 });
 
-// 👇 ROTA RAIZ
+// Rota raiz
 app.get('/', (req, res) => {
   res.redirect('/login');
 });
@@ -60,11 +65,15 @@ app.get('/', (req, res) => {
 app.get('/cadastro', (req, res) => {
   res.sendFile(path.join(PUBLIC_VIEWS, 'cadastro.html'));
 });
+
 app.get('/login', (req, res) => {
   res.sendFile(path.join(PUBLIC_VIEWS, 'login.html'));
 });
+
 app.get('/confirmar', (req, res) => {
-  if (!req.cookies.pending_email) return res.redirect('/cadastro');
+  if (!req.cookies.pending_email) {
+    return res.redirect('/cadastro');
+  }
   res.sendFile(path.join(PUBLIC_VIEWS, 'confirmar.html'));
 });
 
@@ -72,21 +81,25 @@ app.get('/confirmar', (req, res) => {
 function auth(req, res, next) {
   const token = req.cookies.token;
   if (!token) return res.redirect('/login');
+
   jwt.verify(token, JWT_SECRET, async (err, decoded) => {
     if (err) {
       res.clearCookie('token');
       return res.redirect('/login');
     }
+
     try {
       const { data: user, error } = await supabase
         .from('usuarios')
         .select('username, email')
         .eq('email', decoded.email)
         .single();
+
       if (error || !user) {
         res.clearCookie('token');
         return res.redirect('/login');
       }
+
       req.user = user;
       next();
     } catch {
@@ -102,22 +115,25 @@ app.get('/home', auth, (req, res) => {
   html = html.replace('Nome de usuario', req.user.username);
   res.send(html);
 });
+
 app.get('/explorar', auth, (req, res) => {
   let html = fs.readFileSync(path.join(PROTECT_VIEWS, 'explorar.html'), 'utf8');
   html = html.replace('Nome de usuario', req.user.username);
   res.send(html);
 });
+
 app.get('/noticias', auth, async (req, res) => {
   let html = fs.readFileSync(path.join(PROTECT_VIEWS, 'noticias.html'), 'utf8');
-  html = html.replace('Nome de usuario', req.user.username);
   const { data: noticias, error } = await supabase
     .from('noticias')
     .select('*')
     .order('data_publicacao', { ascending: false });
+
   if (error) {
     console.error('Erro ao buscar notícias:', error);
     return res.status(500).send('Erro ao carregar notícias.');
   }
+
   let conteudo = '';
   if (req.user.email === ADMIN_EMAIL) {
     conteudo += `
@@ -132,6 +148,7 @@ app.get('/noticias', auth, async (req, res) => {
       </div>
     `;
   }
+
   conteudo += `
     <div style="text-align:center;margin-top:40px;">
       <h2>Últimas Notícias</h2>
@@ -154,13 +171,15 @@ app.get('/noticias', auth, async (req, res) => {
       }
     </div>
   `;
+
+  html = html.replace(/Nome de usuario/g, req.user.username);
   html = html.replace('<p>Nenhuma notícia no momento.</p>', conteudo);
   res.send(html);
 });
 
-// APIs
+// === APIs ===
 
-// ✅ Registro com confirmação persistente no Supabase
+// Registro com confirmação persistente
 app.post('/api/register', async (req, res) => {
   const { username, email, password } = req.body;
   if (!username || !email || !password)
@@ -173,21 +192,16 @@ app.post('/api/register', async (req, res) => {
     .select('email')
     .eq('email', email)
     .single();
+
   if (existingUser) {
     return res.status(400).json({ error: 'Conta já cadastrada.' });
   }
 
-  // Verificar se já existe confirmação pendente
-  const { data: pending, error: pendingError } = await supabase
-    .from('confirmacoes_pendentes')
-    .select('email')
-    .eq('email', email)
-    .single();
-
   const code = Math.floor(100000 + Math.random() * 900000).toString();
   const hash = await bcrypt.hash(password, 10);
 
-  // Inserir ou atualizar confirmação pendente
+  const expiraEm = new Date(Date.now() + 10 * 60 * 1000); // 10 minutos
+
   const { error: insertError } = await supabase
     .from('confirmacoes_pendentes')
     .upsert({
@@ -195,7 +209,7 @@ app.post('/api/register', async (req, res) => {
       username,
       senha_hash: hash,
       codigo: code,
-      expira_em: new Date(Date.now() + 10 * 60 * 1000).toISOString() // 10 minutos
+      expira_em: expiraEm.toISOString()
     }, { onConflict: 'email' });
 
   if (insertError) {
@@ -215,16 +229,18 @@ app.post('/api/register', async (req, res) => {
     return res.status(500).json({ error: 'Erro ao enviar e-mail.' });
   }
 
-  res.cookie('pending_email', email, { httpOnly: true, maxAge: 10 * 60 * 1000 }); // 10 minutos
+  res.cookie('pending_email', email, { httpOnly: true, maxAge: 10 * 60 * 1000 });
   res.json({ success: true });
 });
 
-// ✅ Confirmação com dados do Supabase
+// Confirmação
 app.post('/api/confirm', async (req, res) => {
   const { code } = req.body;
   const email = req.cookies.pending_email;
-  if (!email || !code)
+
+  if (!email || !code) {
     return res.status(400).json({ error: 'Sessão expirada.' });
+  }
 
   const { data: pending, error } = await supabase
     .from('confirmacoes_pendentes')
@@ -245,7 +261,6 @@ app.post('/api/confirm', async (req, res) => {
     return res.status(400).json({ error: 'Código expirado.' });
   }
 
-  // Criar usuário
   const { error: insertError } = await supabase
     .from('usuarios')
     .insert({
@@ -259,7 +274,6 @@ app.post('/api/confirm', async (req, res) => {
     return res.status(500).json({ error: 'Erro ao confirmar cadastro.' });
   }
 
-  // Remover confirmação pendente
   await supabase.from('confirmacoes_pendentes').delete().eq('email', email);
 
   const token = jwt.sign({ username: pending.username, email: pending.email }, JWT_SECRET, { expiresIn: '24h' });
@@ -275,11 +289,14 @@ app.post('/api/login', async (req, res) => {
     .select('email, senha_hash, username')
     .eq('email', email)
     .single();
+
   if (error || !user) {
     return res.status(400).json({ error: 'Conta não cadastrada.' });
   }
+
   const valid = await bcrypt.compare(password, user.senha_hash);
   if (!valid) return res.status(400).json({ error: 'Senha incorreta.' });
+
   const token = jwt.sign({ username: user.username, email: user.email }, JWT_SECRET, { expiresIn: '24h' });
   res.cookie('token', token, { httpOnly: true, maxAge: 86400000 });
   res.json({ success: true });
@@ -289,10 +306,12 @@ app.post('/api/login', async (req, res) => {
 app.post('/api/noticias', auth, upload.single('imagem'), async (req, res) => {
   if (req.user.email !== ADMIN_EMAIL)
     return res.status(403).json({ error: 'Acesso negado.' });
+
   const { titulo, descricao } = req.body;
   const imagem = req.file;
   if (!titulo || !imagem)
     return res.status(400).json({ error: 'Título e imagem são obrigatórios.' });
+
   const { error } = await supabase
     .from('noticias')
     .insert({
@@ -301,10 +320,12 @@ app.post('/api/noticias', auth, upload.single('imagem'), async (req, res) => {
       imagem_url: `/uploads/${imagem.filename}`,
       autor_email: ADMIN_EMAIL
     });
+
   if (error) {
     console.error('Erro ao publicar notícia:', error);
     return res.status(500).json({ error: 'Falha ao publicar notícia.' });
   }
+
   res.json({ success: true });
 });
 
@@ -312,15 +333,18 @@ app.post('/api/noticias', auth, upload.single('imagem'), async (req, res) => {
 app.delete('/api/noticias/:id', auth, async (req, res) => {
   if (req.user.email !== ADMIN_EMAIL)
     return res.status(403).json({ error: 'Acesso negado.' });
+
   const id = parseInt(req.params.id);
   const { error } = await supabase
     .from('noticias')
     .delete()
     .eq('id', id);
+
   if (error) {
     console.error('Erro ao excluir notícia:', error);
     return res.status(500).json({ error: 'Falha ao excluir notícia.' });
   }
+
   res.json({ success: true });
 });
 
@@ -339,4 +363,3 @@ app.use((req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Servidor rodando na porta ${PORT}`);
 });
-
