@@ -10,31 +10,42 @@ const multer = require('multer');
 const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000; // ⚠️ Render define PORT automaticamente
 
-// Configurações
+// Configurações do .env
 const JWT_SECRET = process.env.JWT_SECRET;
-const ADMIN_EMAIL = 'nukseditionofc@gmail.com'; // fixo
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 
 // Supabase client
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// Pastas
+// Diretórios
 const VIEWS_DIR = path.join(__dirname, 'views');
 const PUBLIC_VIEWS = path.join(VIEWS_DIR, 'public');
 const PROTECT_VIEWS = path.join(VIEWS_DIR, 'protect');
+const UPLOADS_DIR = path.join(__dirname, 'public', 'uploads');
 
-// Multer (só para receber o arquivo em memória)
-const upload = multer({ storage: multer.memoryStorage() });
+if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+
+// Multer para uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, UPLOADS_DIR),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, Date.now() + '-' + Math.round(Math.random() * 1e9) + ext);
+  }
+});
+const upload = multer({ storage });
 
 // Middlewares
 app.use(express.json());
 app.use(cookieParser());
+app.use('/uploads', express.static(UPLOADS_DIR));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Sessão temporária (em memória)
+// Sessão temporária para confirmação (em memória)
 let pendingConfirmations = {};
 
 // Nodemailer
@@ -43,7 +54,7 @@ const transporter = nodemailer.createTransport({
   auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
 });
 
-// Rota raiz
+// 👇 ROTA RAIZ: redireciona para login
 app.get('/', (req, res) => {
   res.redirect('/login');
 });
@@ -115,7 +126,6 @@ app.get('/noticias', auth, async (req, res) => {
 
   let conteudo = '';
 
-  // Formulário só para admin
   if (req.user.email === ADMIN_EMAIL) {
     conteudo += `
       <div style="max-width:600px;margin:40px auto;padding:20px;border:1px solid #ccc;text-align:left;">
@@ -130,31 +140,24 @@ app.get('/noticias', auth, async (req, res) => {
     `;
   }
 
-  // Listagem
   conteudo += `
     <div style="text-align:center;margin-top:40px;">
       <h2>Últimas Notícias</h2>
       ${
         noticias && noticias.length > 0
-          ? noticias.map(n => {
-              // Gera URL pública da imagem no Supabase
-              const imageUrl = n.chave_imagem
-                ? `${SUPABASE_URL}/storage/v1/object/public/noticias/${n.chave_imagem}`
-                : '';
-              return `
-                <div style="border:1px solid #eee;padding:15px;margin:15px auto;max-width:600px;text-align:left;">
-                  <h3>${n.titulo}</h3>
-                  ${imageUrl ? `<img src="${imageUrl}" style="max-width:100%;height:auto;">` : ''}
-                  ${n.descricao ? `<p>${n.descricao}</p>` : ''}
-                  <p style="font-size:12px;color:#666;">📅 Publicado em ${new Date(n.data_publicacao).toLocaleDateString('pt-BR')}</p>
-                  ${
-                    req.user.email === ADMIN_EMAIL
-                      ? `<button onclick="excluirNoticia(${n.id})" style="background:#c0392b;color:white;border:none;padding:5px 10px;cursor:pointer;">Excluir</button>`
-                      : ''
-                  }
-                </div>
-              `;
-            }).join('')
+          ? noticias.map(n => `
+            <div style="border:1px solid #eee;padding:15px;margin:15px auto;max-width:600px;text-align:left;">
+              <h3>${n.titulo}</h3>
+              <img src="${n.imagem_url}" style="max-width:100%;height:auto;">
+              ${n.descricao ? `<p>${n.descricao}</p>` : ''}
+              <p style="font-size:12px;color:#666;">📅 Publicado em ${new Date(n.data_publicacao).toLocaleDateString('pt-BR')}</p>
+              ${
+                req.user.email === ADMIN_EMAIL
+                  ? `<button onclick="excluirNoticia(${n.id})" style="background:#c0392b;color:white;border:none;padding:5px 10px;cursor:pointer;">Excluir</button>`
+                  : ''
+              }
+            </div>
+          `).join('')
           : '<p>Nenhuma notícia no momento.</p>'
       }
     </div>
@@ -172,7 +175,7 @@ app.post('/api/register', async (req, res) => {
   if (password.length < 6)
     return res.status(400).json({ error: 'Senha deve ter no mínimo 6 caracteres.' });
 
-  const {  existingUser } = await supabase
+  const {  existingUser, error: fetchError } = await supabase
     .from('usuarios')
     .select('email')
     .eq('email', email)
@@ -213,7 +216,11 @@ app.post('/api/confirm', async (req, res) => {
 
   const { error } = await supabase
     .from('usuarios')
-    .insert({ username: p.username, email, senha_hash: p.hash });
+    .insert({
+      username: p.username,
+      email: email,
+      senha_hash: p.hash
+    });
 
   if (error) {
     console.error('Erro ao inserir usuário:', error);
@@ -228,13 +235,13 @@ app.post('/api/confirm', async (req, res) => {
 
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
-  const {  user } = await supabase
+  const {  user, error } = await supabase
     .from('usuarios')
     .select('email, senha_hash, username')
     .eq('email', email)
     .single();
 
-  if (!user) {
+  if (error || !user) {
     return res.status(400).json({ error: 'Conta não cadastrada.' });
   }
 
@@ -246,7 +253,6 @@ app.post('/api/login', async (req, res) => {
   res.json({ success: true });
 });
 
-// Publicar notícia com upload no Supabase Storage
 app.post('/api/noticias', auth, upload.single('imagem'), async (req, res) => {
   if (req.user.email !== ADMIN_EMAIL)
     return res.status(403).json({ error: 'Acesso negado.' });
@@ -256,37 +262,17 @@ app.post('/api/noticias', auth, upload.single('imagem'), async (req, res) => {
   if (!titulo || !imagem)
     return res.status(400).json({ error: 'Título e imagem são obrigatórios.' });
 
-  // Nome único para a imagem
-  const ext = path.extname(imagem.originalname);
-  const fileName = `noticia_${Date.now()}_${Math.random().toString(36).substring(2, 10)}${ext}`;
-
-  // Upload no bucket "noticias"
-  const { data, error: uploadError } = await supabase.storage
-    .from('noticias')
-    .upload(fileName, imagem.buffer, {
-      contentType: imagem.mimetype,
-      upsert: false
-    });
-
-  if (uploadError) {
-    console.error('Erro no upload:', uploadError);
-    return res.status(500).json({ error: 'Falha ao enviar imagem.' });
-  }
-
-  // Salvar na tabela com a chave (nome do arquivo)
-  const { error: dbError } = await supabase
+  const { error } = await supabase
     .from('noticias')
     .insert({
       titulo,
       descricao: descricao || null,
-      chave_imagem: fileName, // ← salva só o nome do arquivo
+      imagem_url: `/uploads/${imagem.filename}`,
       autor_email: ADMIN_EMAIL
     });
 
-  if (dbError) {
-    console.error('Erro ao salvar notícia:', dbError);
-    // Opcional: tentar deletar a imagem se falhar o DB
-    await supabase.storage.from('noticias').remove([fileName]);
+  if (error) {
+    console.error('Erro ao publicar notícia:', error);
     return res.status(500).json({ error: 'Falha ao publicar notícia.' });
   }
 
@@ -298,18 +284,6 @@ app.delete('/api/noticias/:id', auth, async (req, res) => {
     return res.status(403).json({ error: 'Acesso negado.' });
 
   const id = parseInt(req.params.id);
-
-  // Primeiro, buscar a chave da imagem para deletar do Storage
-  const {  noticia } = await supabase
-    .from('noticias')
-    .select('chave_imagem')
-    .eq('id', id)
-    .single();
-
-  if (noticia?.chave_imagem) {
-    await supabase.storage.from('noticias').remove([noticia.chave_imagem]);
-  }
-
   const { error } = await supabase
     .from('noticias')
     .delete()
@@ -328,10 +302,13 @@ app.get('/logout', (req, res) => {
   res.redirect('/login');
 });
 
+// 404 fallback
 app.use((req, res) => {
   res.status(404).send('<h1>404 - Página não encontrada</h1>');
 });
 
+// Iniciar servidor
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Servidor rodando na porta ${PORT}`);
 });
+
