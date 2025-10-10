@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cadastrar - NuksEdition</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #fff;
+        }
+        header {
+            width: 100%;
+            background-color: #808080;
+            color: white;
+            text-align: center;
+            padding: 20px 0;
+            font-size: 2em;
+            font-weight: bold;
+        }
+        .container {
+            margin-top: 40px;
+            text-align: center;
+            width: 100%;
+            max-width: 400px;
+        }
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 30px;
+        }
+        input[type="text"],
+        input[type="password"],
+        input[type="email"] {
+            width: 80%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 2px solid black;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #808080;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 18px;
+            cursor: pointer;
+            margin-top: 20px;
+            font-weight: bold;
+        }
+        button:hover {
+            background-color: #666;
+        }
+        .login-link {
+            margin-top: 20px;
+            font-weight: bold;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <header>NuksEdition</header>
+    <div class="container">
+        <h1>Cadastrar</h1>
+        <input type="text" id="username" placeholder="Nome de usuario" required>
+        <input type="email" id="email" placeholder="Email" required>
+        <input type="password" id="password" placeholder="Senha" required>
+        <button id="btn">Criar</button>
+        <div class="login-link">Já tem uma conta? <a href="/login" style="color: inherit; text-decoration: underline;">login</a></div>
+    </div>
+
+    <script>
+        document.getElementById('btn').addEventListener('click', async () => {
+            const u = document.getElementById('username').value;
+            const e = document.getElementById('email').value;
+            const p = document.getElementById('password').value;
+            const res = await fetch('/api/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: u, email: e, password: p })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                window.location.href = '/confirmar';
+            } else {
+                alert(data.error);
+            }
+        });
+    </script>
+</body>
+</html>

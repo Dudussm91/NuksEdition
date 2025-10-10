@@ -1,0 +1,44 @@
+app.get('/noticias', auth, (req, res) => {
+  let html = fs.readFileSync(path.join(PROTECT_VIEWS, 'noticias.html'), 'utf8');
+  html = html.replace('Nome de usuario', req.user.username);
+
+  let conteudo = '';
+
+  // 🔹 Se for admin, mostra o formulário primeiro
+  if (req.user.email === ADMIN_EMAIL) {
+    conteudo += `
+      <div style="max-width:600px;margin:20px auto;padding:20px;border:1px solid #ccc;text-align:left;">
+        <h2>Publicar Notícia</h2>
+        <form id="form-noticia" enctype="multipart/form-data">
+          <input type="text" id="titulo" placeholder="Título" required style="width:100%;padding:8px;margin:5px 0;">
+          <input type="file" id="imagem" accept="image/*" required style="margin:5px 0;">
+          <textarea id="descricao" placeholder="Descrição (opcional)" style="width:100%;padding:8px;margin:5px 0;height:80px;"></textarea>
+          <button type="submit" style="background:#808080;color:white;padding:10px;border:none;cursor:pointer;">Publicar</button>
+        </form>
+      </div>
+    `;
+  }
+
+  // 🔹 Depois, mostra as notícias
+  conteudo += `
+    <div style="text-align:center;margin-top:40px;">
+      <h2>Últimas Notícias</h2>
+      ${
+        noticias.length > 0
+          ? noticias.map(n => `
+            <div style="border:1px solid #eee;padding:15px;margin:15px auto;max-width:600px;text-align:left;">
+              <h3>${n.titulo}</h3>
+              <img src="${n.imagemUrl}" style="max-width:100%;height:auto;">
+              ${n.descricao ? `<p>${n.descricao}</p>` : ''}
+            </div>
+          `).join('')
+          : '<p>Nenhuma notícia no momento.</p>'
+      }
+    </div>
+  `;
+
+  // 🔹 Substitui o corpo pelo conteúdo novo
+  html = html.replace('<p>Nenhuma notícia no momento.</p>', conteudo);
+
+  res.send(html);
+});

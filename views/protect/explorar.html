@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Explorar - NuksEdition</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #fff;
+        }
+        header {
+            width: 100%;
+            background-color: #808080;
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        .user-info {
+            font-weight: bold;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 200px;
+        }
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .nav-links a:hover {
+            text-decoration: underline;
+        }
+        .content {
+            text-align: center;
+            padding: 60px 20px 40px;
+        }
+        h1 {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        p {
+            font-size: 16px;
+            margin: 5px 0;
+        }
+        .back-link {
+            display: block;
+            text-align: right;
+            margin-top: 40px;
+            margin-right: 20px;
+            color: black;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="user-info">Nome de usuario</div>
+        <div class="nav-links">
+            <a href="/noticias">Noticias</a>
+        </div>
+    </header>
+    <div class="content">
+        <h1>ByteVerso</h1>
+        <p>Não lançado</p>
+    </div>
+    <a href="/home" class="back-link">Voltar</a>
+</body>
+</html>
