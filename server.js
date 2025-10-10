@@ -10,7 +10,7 @@ const multer = require('multer');
 const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000; // ⚠️ Render define PORT automaticamente
 
 // Configurações do .env
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -45,10 +45,18 @@ app.use(cookieParser());
 app.use('/uploads', express.static(UPLOADS_DIR));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Sessão temporária para confirmação (em memória)
+let pendingConfirmations = {};
+
 // Nodemailer
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+});
+
+// 👇 ROTA RAIZ: redireciona para login
+app.get('/', (req, res) => {
+  res.redirect('/login');
 });
 
 // Rotas públicas
@@ -118,7 +126,6 @@ app.get('/noticias', auth, async (req, res) => {
 
   let conteudo = '';
 
-  // Formulário de publicação (só admin)
   if (req.user.email === ADMIN_EMAIL) {
     conteudo += `
       <div style="max-width:600px;margin:40px auto;padding:20px;border:1px solid #ccc;text-align:left;">
@@ -133,7 +140,6 @@ app.get('/noticias', auth, async (req, res) => {
     `;
   }
 
-  // Listagem de notícias
   conteudo += `
     <div style="text-align:center;margin-top:40px;">
       <h2>Últimas Notícias</h2>
@@ -169,7 +175,6 @@ app.post('/api/register', async (req, res) => {
   if (password.length < 6)
     return res.status(400).json({ error: 'Senha deve ter no mínimo 6 caracteres.' });
 
-  // Verificar se já existe
   const { data: existingUser, error: fetchError } = await supabase
     .from('usuarios')
     .select('email')
@@ -181,88 +186,49 @@ app.post('/api/register', async (req, res) => {
 
   const code = Math.floor(100000 + Math.random() * 900000).toString();
   const hash = await bcrypt.hash(password, 10);
-
-  // Salvar na tabela persistente
-  const { error: insertError } = await supabase
-    .from('cadastros_pendentes')
-    .insert({
-      email,
-      username,
-      senha_hash: hash,
-      codigo_confirmacao: code
-    });
-
-  if (insertError) {
-    console.error('Erro ao salvar cadastro pendente:', insertError);
-    return res.status(500).json({ error: 'Erro interno. Tente novamente.' });
-  }
+  pendingConfirmations[email] = { code, username, hash };
 
   try {
     await transporter.sendMail({
       from: process.env.EMAIL_USER,
       to: email,
       subject: 'Confirme seu cadastro',
-      html: `<h2>Seu código de confirmação: <strong>${code}</strong></h2><p>Este código expira em 10 minutos.</p>`
+      html: `<h2>Seu código: ${code}</h2>`
     });
   } catch (err) {
     console.error('Erro ao enviar e-mail:', err);
-    // Opcional: remover o registro pendente se falhar o e-mail
-    await supabase.from('cadastros_pendentes').delete().eq('email', email);
     return res.status(500).json({ error: 'Erro ao enviar e-mail.' });
   }
 
-  res.cookie('pending_email', email, { httpOnly: true, maxAge: 600000 }); // 10 minutos
+  res.cookie('pending_email', email, { httpOnly: true, maxAge: 600000 });
   res.json({ success: true });
 });
 
 app.post('/api/confirm', async (req, res) => {
   const { code } = req.body;
   const email = req.cookies.pending_email;
-
   if (!email || !code)
     return res.status(400).json({ error: 'Sessão expirada.' });
 
-  // Buscar cadastro pendente
-  const { data: pending, error } = await supabase
-    .from('cadastros_pendentes')
-    .select('*')
-    .eq('email', email)
-    .single();
-
-  if (error || !pending) {
-    return res.status(400).json({ error: 'Sessão expirada ou inválida.' });
-  }
-
-  // Verificar expiração
-  if (new Date(pending.expira_em) < new Date()) {
-    await supabase.from('cadastros_pendentes').delete().eq('email', email);
-    return res.status(400).json({ error: 'Código expirado. Cadastre-se novamente.' });
-  }
-
-  // Verificar código
-  if (pending.codigo_confirmacao !== code) {
+  const p = pendingConfirmations[email];
+  if (!p || p.code !== code)
     return res.status(400).json({ error: 'Código inválido.' });
-  }
 
-  // Criar usuário
-  const { error: insertUserError } = await supabase
+  const { error } = await supabase
     .from('usuarios')
     .insert({
-      username: pending.username,
-      email: pending.email,
-      senha_hash: pending.senha_hash
+      username: p.username,
+      email: email,
+      senha_hash: p.hash
     });
 
-  if (insertUserError) {
-    console.error('Erro ao criar usuário:', insertUserError);
+  if (error) {
+    console.error('Erro ao inserir usuário:', error);
     return res.status(500).json({ error: 'Erro ao confirmar cadastro.' });
   }
 
-  // Remover pendente
-  await supabase.from('cadastros_pendentes').delete().eq('email', email);
-
-  // Gerar token
-  const token = jwt.sign({ username: pending.username, email: pending.email }, JWT_SECRET, { expiresIn: '24h' });
+  delete pendingConfirmations[email];
+  const token = jwt.sign({ username: p.username, email }, JWT_SECRET, { expiresIn: '24h' });
   res.cookie('token', token, { httpOnly: true, maxAge: 86400000 });
   res.json({ success: true });
 });
@@ -336,11 +302,12 @@ app.get('/logout', (req, res) => {
   res.redirect('/login');
 });
 
-// 404
+// 404 fallback
 app.use((req, res) => {
   res.status(404).send('<h1>404 - Página não encontrada</h1>');
 });
 
-app.listen(PORT, () => {
-  console.log(`✅ Servidor rodando em http://localhost:${PORT}`);
+// Iniciar servidor
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ Servidor rodando na porta ${PORT}`);
 });
